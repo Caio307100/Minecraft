@@ -1,0 +1,37 @@
+# Dependencies and generated output
+node_modules/
+dist/
+build/
+coverage/
+*.log
+npm-debug.log*
+
+# Local backups and recovery artifacts
+*.bak
+*.orig
+*.rej
+*.failed-*
+*.before-*
+*.pre-*
+backups/
+.survival-recovery-backup-*/
+
+# Local Java/build artifacts
+*.class
+*.jar
+*.pyc
+__pycache__/
+
+# Original Minecraft assets/content: obtain from a legally owned copy
+/assets/
+/original/
+/public/assets/mc10/
+/public/textures/
+/public/assets/mc10_faces_spec.json
+/public/grasscolor.png
+
+# More local backup variants
+*.bak-*
+
+# Minecraft-derived binary assets are not redistributed
+/public/assets/*.png

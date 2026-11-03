@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minecraft 1.0 Browser</title>
+  <style>
+    * { margin: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; }
+    body { background: #171717; overflow: hidden; }
+    canvas { width: 100vw; height: 100vh; display: block; }
+    #debug-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: none;
+      pointer-events: none;
+      color: #e0e0e0;
+      white-space: pre;
+    }
+    #debug-overlay.visible { display: block; }
+    #debug-overlay > div { position: absolute; height: calc(8px * var(--hud-scale, 1)); }
+    #debug-overlay > div.left { left: calc(2px * var(--hud-scale, 1)); }
+    #debug-overlay > div.right { right: calc(2px * var(--hud-scale, 1)); }
+
+
+    .mc-text {
+      display: inline-flex;
+      align-items: flex-start;
+      vertical-align: top;
+      white-space: pre;
+      line-height: 0;
+    }
+
+    .mc-glyph {
+      display: inline-block;
+      flex: 0 0 auto;
+      image-rendering: pixelated;
+    }
+
+    #hud {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    #crosshair {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 16px;
+      height: 16px;
+      transform: translate(-50%, -50%) scale(var(--hud-scale, 1));
+      transform-origin: center;
+      background: url('./public/assets/mc10/gui/icons.png') 0 0 no-repeat;
+      image-rendering: pixelated;
+    }
+
+    #hotbar-wrapper {
+      position: absolute;
+      left: 50%;
+      bottom: 0;
+      transform: translateX(-50%) scale(var(--hud-scale, 1));
+      transform-origin: bottom center;
+    }
+
+    #hotbar {
+      position: relative;
+      width: 182px;
+      height: 22px;
+      background: url('./public/assets/mc10/gui/gui.png') 0 0 no-repeat;
+      image-rendering: pixelated;
+    }
+
+    #hotbar-selection {
+      z-index: 2;
+      position: absolute;
+      left: -1px;
+      top: -1px;
+      width: 24px;
+      height: 22px;
+      background: url('./public/assets/mc10/gui/gui.png') 0 -22px no-repeat;
+      transition: left 60ms linear;
+    }
+
+    #hotbar-icons {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 182px;
+      height: 22px;
+      z-index: 1;
+      pointer-events: none;
+      image-rendering: pixelated;
+    }
+
+    .hotbar-item {
+      position: absolute;
+      top: 3px;
+      width: 16px;
+      height: 16px;
+      background-image: url('./public/assets/terrain.png');
+      background-repeat: no-repeat;
+      image-rendering: pixelated;
+    }
+
+    #hotbar-counts {
+      position: absolute;
+      inset: 0;
+      width: 182px;
+      height: 22px;
+      z-index: 3;
+      pointer-events: none;
+      image-rendering: pixelated;
+    }
+
+    .hotbar-count {
+      position: absolute;
+      bottom: 1px;
+      min-width: 9px;
+      color: #fff;
+      display: flex;
+      align-items: flex-end;
+      justify-content: flex-end;
+      height: 9px;
+      font-size: 0;
+      text-align: right;
+      text-shadow: 1px 1px 0 #3f3f3f, -1px -1px 0 #3f3f3f,
+                   1px -1px 0 #3f3f3f, -1px 1px 0 #3f3f3f;
+    }
+
+    #survival-hud {
+      position: fixed;
+      left: 50%;
+      bottom: 0;
+      width: 182px;
+      height: 54px;
+      transform: translateX(-50%) scale(var(--hud-scale, 1));
+      transform-origin: bottom center;
+      pointer-events: none;
+      z-index: 11;
+    }
+
+    /* qd.java: HUD icons are 9x9 with an 8px pitch, not a 9px flex gap. */
+    .survival-row {
+      position: absolute;
+      width: 81px;
+      height: 9px;
+      image-rendering: pixelated;
+    }
+
+    .mc-gui-icon {
+      position: absolute;
+      top: 0;
+      width: 9px;
+      height: 9px;
+      background-image: url('./public/assets/mc10/gui/icons.png');
+      background-repeat: no-repeat;
+      image-rendering: pixelated;
+    }
+
+    /* qd.java: health/food y=height-39; air y=height-49. */
+    #health-icons { left: 0; bottom: 30px; }
+    #food-icons { right: 0; bottom: 30px; }
+    #air-icons { right: 0; bottom: 40px; }
+
+    #chat-screen {
+      position: fixed; left: 0; right: 0; bottom: 0; height: 0;
+      z-index: 30; display: none; pointer-events: none;
+    }
+    #chat-screen.open { display: block; }
+    #chat-background {
+      position: absolute;
+      left: calc(2px * var(--hud-scale, 1));
+      right: calc(2px * var(--hud-scale, 1));
+      bottom: calc(2px * var(--hud-scale, 1));
+      height: calc(12px * var(--hud-scale, 1));
+      background: rgba(0, 0, 0, 0.5);
+    }
+    #chat-rendered-text {
+      position: absolute;
+      left: calc(4px * var(--hud-scale, 1));
+      bottom: calc(4px * var(--hud-scale, 1));
+      height: calc(8px * var(--hud-scale, 1));
+      color: #e0e0e0; white-space: nowrap;
+    }
+    #chat-rendered-text .mc-text { display: flex; height: calc(8px * var(--hud-scale, 1)); line-height: 1; }
+    #chat-rendered-text .mc-glyph { display: inline-block; flex: 0 0 auto; height: calc(8px * var(--hud-scale, 1)); }
+    #chat-input { position: fixed; left: 4px; bottom: 4px; width: 2px; height: 2px; opacity: 0.01; pointer-events: auto; z-index: 31; }
+    #chat-cursor { animation: chat-cursor-blink 600ms steps(2, start) infinite; }
+    @keyframes chat-cursor-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+
+
+    #inventory-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 25;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.48);
+      pointer-events: auto;
+    }
+
+    #inventory-screen.open { display: flex; }
+
+    #inventory-panel {
+      position: relative;
+      width: 176px;
+      height: 166px;
+      flex: 0 0 176px;
+      transform: scale(var(--hud-scale, 1));
+      transform-origin: center;
+      background: url('./public/assets/mc10/gui/inventory.png') 0 0 no-repeat;
+      image-rendering: pixelated;
+      user-select: none;
+    }
+
+    #inventory-title {
+      position: absolute;
+      left: 86px;
+      top: 16px;
+      color: #404040;
+      font-size: 0;
+      line-height: 0;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    #inventory-preview {
+      position: absolute;
+      left: 26px;
+      top: 17px;
+      width: 50px;
+      height: 54px;
+      z-index: 2;
+      pointer-events: none;
+      image-rendering: pixelated;
+    }
+
+    #inventory-items {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 176px;
+      height: 166px;
+      z-index: 3;
+      pointer-events: none;
+      image-rendering: pixelated;
+    }
+
+    #inventory-slots {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+    }
+
+    .inventory-slot {
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      pointer-events: auto;
+    }
+
+    .inventory-slot:hover {
+      outline: 1px solid rgba(255, 255, 255, 0.45);
+    }
+
+    .inventory-slot.output-slot { cursor: default; }
+
+    #inventory-tooltip {
+      position: absolute;
+      z-index: 7;
+      display: none;
+      width: max-content;
+      height: 8px;
+      padding: 2px;
+      box-sizing: content-box;
+      line-height: 8px;
+      color: #fff;
+      border: 1px solid #5040a0;
+      border-top-color: #5050ff;
+      border-bottom-color: #50287f;
+      background: #100010;
+      pointer-events: none;
+      white-space: nowrap;
+      align-items: flex-start;
+    }
+
+    #inventory-counts {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      pointer-events: none;
+    }
+
+    .inventory-count {
+      position: absolute;
+      width: 16px;
+      height: 9px;
+      color: #fff;
+      display: flex;
+      align-items: flex-end;
+      justify-content: flex-end;
+      font-size: 0;
+      text-align: right;
+      text-shadow: 1px 1px 0 #3f3f3f, -1px -1px 0 #3f3f3f,
+                   1px -1px 0 #3f3f3f, -1px 1px 0 #3f3f3f;
+    }
+
+    #inventory-cursor-count {
+      position: absolute;
+      z-index: 6;
+      display: none;
+      width: 16px;
+      height: 9px;
+      color: #fff;
+      font-size: 0;
+      text-align: right;
+      text-shadow: 1px 1px 0 #3f3f3f, -1px -1px 0 #3f3f3f,
+                   1px -1px 0 #3f3f3f, -1px 1px 0 #3f3f3f;
+      pointer-events: none;
+    }
+
+
+    #game-menu {
+      position: fixed;
+      inset: 0;
+      z-index: 28;
+      display: none;
+      pointer-events: auto;
+      background: linear-gradient(to bottom, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.82));
+      image-rendering: pixelated;
+    }
+
+    #game-menu.open { display: block; }
+
+    #game-menu-title {
+      position: absolute;
+      top: calc(40px * var(--hud-scale, 1));
+      left: 50%;
+      transform: translateX(-50%) scale(var(--hud-scale, 1));
+      transform-origin: top center;
+      color: #fff;
+      font-size: 0;
+      line-height: 0;
+      white-space: nowrap;
+      text-shadow: 2px 2px #3f3f3f;
+    }
+
+    .game-menu-button {
+      position: absolute;
+      left: 50%;
+      width: 200px;
+      height: 20px;
+      padding: 0;
+      transform: translateX(-50%) scale(var(--hud-scale, 1));
+      transform-origin: top center;
+      border: 0;
+      border-radius: 0;
+      outline: 0;
+      background: transparent;
+      color: #e0e0e0;
+      font: 0 monospace;
+      line-height: 8px;
+      cursor: default;
+      image-rendering: pixelated;
+      isolation: isolate;
+    }
+
+    .game-menu-button::before,
+    .game-menu-button::after {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      top: 0;
+      width: 50%;
+      height: 20px;
+      background-image: url('./public/assets/mc10/gui/gui.png');
+      background-repeat: no-repeat;
+      pointer-events: none;
+    }
+
+    .game-menu-button::before {
+      left: 0;
+      background-position: 0 -66px;
+    }
+
+    .game-menu-button::after {
+      right: 0;
+      background-position: -100px -66px;
+    }
+
+    .game-menu-button:hover { color: #ffffa0; }
+    .game-menu-button:hover::before { background-position-y: -86px; }
+    .game-menu-button:hover::after { background-position-y: -86px; }
+
+    #back-to-game { top: calc(25% + 8px * var(--hud-scale, 1)); }
+    #achievements-button {
+      top: calc(25% + 32px * var(--hud-scale, 1));
+      left: calc(50% - 100px * var(--hud-scale, 1));
+      width: 98px;
+      transform: scale(var(--hud-scale, 1));
+      transform-origin: top left;
+    }
+    #achievements-button::after,
+    #stats-button::after { background-position-x: -151px; }
+    #stats-button {
+      top: calc(25% + 32px * var(--hud-scale, 1));
+      left: calc(50% + 2px * var(--hud-scale, 1));
+      width: 98px;
+      transform: scale(var(--hud-scale, 1));
+      transform-origin: top left;
+    }
+    #options-button { top: calc(25% + 80px * var(--hud-scale, 1)); }
+    #save-quit-title { top: calc(25% + 104px * var(--hud-scale, 1)); }
+
+    #options-screen, #video-options-screen, #controls-screen {
+      position: fixed; inset: 0; z-index: 29; display: none;
+      color: #fff; pointer-events: auto; image-rendering: pixelated;
+      background: rgba(0,0,0,.75); font-family: monospace;
+    }
+    #options-screen.open, #video-options-screen.open, #controls-screen.open { display:block; }
+    .mc-options-title {
+      position:absolute; top:calc(20px * var(--hud-scale,1)); left:50%;
+      transform:translateX(-50%) scale(var(--hud-scale,1)); transform-origin:top center;
+      color:#fff; white-space:nowrap; font-size:0; line-height:0;
+    }
+    .mc-option-control {
+      position:absolute; width:150px; height:20px; padding:0; border:0; border-radius:0;
+      transform:scale(var(--hud-scale,1)); transform-origin:top left;
+      background:transparent; color:#e0e0e0; font:0 monospace; cursor:default;
+      image-rendering:pixelated; isolation:isolate;
+    }
+    .mc-option-control::before,.mc-option-control::after {
+      content:""; position:absolute; z-index:-1; top:0; width:50%; height:20px;
+      background-image:url('./public/assets/mc10/gui/gui.png'); background-repeat:no-repeat;
+      pointer-events:none;
+    }
+    .mc-option-control::before {left:0;background-position:0 -66px}
+    .mc-option-control::after {right:0;background-position:-125px -66px}
+    .mc-option-control:hover {color:#ffffa0}
+    .mc-option-control:hover::before,.mc-option-control:hover::after {background-position-y:-86px}
+    .mc-option-control .mc-text { position:relative; z-index:2; justify-content:center; width:100%; height:20px; align-items:center; }
+    .mc-option-control:disabled {color:#707070}
+    .mc-option-control:disabled::before,.mc-option-control:disabled::after {background-position-y:-46px}
+    .mc-option-slider { position:absolute; width:150px; height:20px; margin:0; padding:0; appearance:none; -webkit-appearance:none; z-index:1;
+      background:transparent; border:0; border-radius:0; image-rendering:pixelated;
+      transform:scale(var(--hud-scale,1)); transform-origin:top left; cursor:pointer; }
+    .mc-option-slider::-webkit-slider-runnable-track {height:20px; border:0; background:url('./public/assets/mc10/gui/slider-track.png') 0 0 / 150px 20px no-repeat;}
+    .mc-option-slider::-moz-range-track {height:20px; border:0; background:url('./public/assets/mc10/gui/slider-track.png') 0 0 / 150px 20px no-repeat;}
+    .mc-option-slider::-webkit-slider-thumb {appearance:none; -webkit-appearance:none; width:8px; height:20px; margin-top:0; border:0; border-radius:0;
+      background:url('./public/assets/mc10/gui/slider-thumb.png') 0 0 / 8px 20px no-repeat; image-rendering:pixelated;}
+    .mc-option-slider::-moz-range-thumb {width:8px;height:20px;border:0;border-radius:0;
+      background:url('./public/assets/mc10/gui/slider-thumb.png') 0 0 / 8px 20px no-repeat; image-rendering:pixelated;}
+    .mc-option-done { position:absolute; left:50%; width:200px; height:20px; margin:0;
+      transform:translateX(-50%) scale(var(--hud-scale,1)); transform-origin:top center; }
+    .mc-option-done::after { background-position-x:-100px; }
+    #options-done { top:calc((100vh / 6 + 168px) * 1); }
+    #options-video { top:calc((100vh / 6 + 96px) * 1); }
+    #options-controls { top:calc((100vh / 6 + 120px) * 1); }
+    #video-options-done,#controls-done {top:calc(100vh / 6 + 168px * var(--hud-scale,1))}
+    #controls-list { position:absolute; left:calc(50% - 155px * var(--hud-scale,1)); top:calc(100vh / 6); width:320px; display:grid; grid-template-columns:156px 156px; grid-auto-rows:20px; gap:4px 4px; transform:scale(var(--hud-scale,1)); transform-origin:top left; }
+    .mc-control-entry { position:relative; width:156px; height:20px; display:flex; align-items:center; gap:6px; }
+    #controls-list .mc-option-control { position:relative; flex:0 0 70px; width:70px; height:20px; left:auto!important; top:auto!important; transform:none!important; }
+    .mc-control-name { width:80px; height:20px; display:flex; align-items:center; color:#fff; white-space:nowrap; font-size:0; line-height:0; }
+    .mc-options-label {position:absolute;width:150px;height:20px;display:flex;align-items:center;
+      justify-content:center;color:#e0e0e0;font-size:0;line-height:0;pointer-events:none;z-index:2;
+      transform:scale(var(--hud-scale,1));transform-origin:top left;white-space:nowrap}
+    .mc-options-label.disabled {color:#707070}
+    #options-screen:has(#option-music:hover) #option-music-label,
+    #options-screen:has(#option-sound:hover) #option-sound-label,
+    #options-screen:has(#option-sensitivity:hover) #option-sensitivity-label,
+    #options-screen:has(#option-fov:hover) #option-fov-label {color:#ffffa0}
+
+    #death-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: none;
+      background: rgba(80, 0, 0, 0.376);
+      color: #fff;
+      pointer-events: auto;
+    }
+    #death-screen.visible { display: block; }
+    #death-title, #death-score {
+      position: absolute;
+      left: 50%;
+      width: max-content;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      color: #fff;
+    }
+    #death-title { top: calc(60px * var(--hud-scale, 1)); }
+    #death-score { top: calc(100px * var(--hud-scale, 1)); }
+    #respawn-button {
+      position: absolute;
+      top: calc(25% + 72px * var(--hud-scale, 1));
+      left: 50%;
+      width: 200px;
+      height: 20px;
+      padding: 0;
+      transform: translateX(-50%) scale(var(--hud-scale, 1));
+      transform-origin: top center;
+      border: 0;
+      background: transparent;
+      color: white;
+      cursor: pointer;
+      isolation: isolate;
+    }
+    #respawn-button::before,
+    #respawn-button::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      width: 100px;
+      height: 20px;
+      background-image: url('./public/assets/mc10/gui/gui.png');
+      background-repeat: no-repeat;
+      z-index: -1;
+      pointer-events: none;
+    }
+    #respawn-button::before {
+      left: 0;
+      background-position: 0 -66px;
+    }
+    #respawn-button::after {
+      right: 0;
+      background-position: -100px -66px;
+    }
+    #respawn-button:hover { color: #ffffa0; }
+    #respawn-button:hover::before { background-position: 0 -86px; }
+    #respawn-button:hover::after { background-position: -100px -86px; }
+    #respawn-button:disabled { color: #606060; cursor: default; }
+    #respawn-button:disabled::before { background-position: 0 -46px; }
+    #respawn-button:disabled::after { background-position: -100px -46px; }
+    #respawn-button .mc-text { position: relative; z-index: 1; }
+    body:has(#death-screen.visible) #hud { visibility: hidden; }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <div id="debug-overlay" aria-hidden="true"></div>
+
+  <div id="hud">
+    <div id="crosshair"></div>
+    <div id="hotbar-wrapper">
+      <div id="hotbar">
+        <canvas id="hotbar-icons"></canvas>
+        <div id="hotbar-counts">
+          <span class="hotbar-count" data-slot="0"></span>
+          <span class="hotbar-count" data-slot="1"></span>
+          <span class="hotbar-count" data-slot="2"></span>
+          <span class="hotbar-count" data-slot="3"></span>
+          <span class="hotbar-count" data-slot="4"></span>
+          <span class="hotbar-count" data-slot="5"></span>
+          <span class="hotbar-count" data-slot="6"></span>
+          <span class="hotbar-count" data-slot="7"></span>
+          <span class="hotbar-count" data-slot="8"></span>
+        </div>
+        <div id="hotbar-selection"></div>
+        <div class="hotbar-item" data-texture="1"></div>
+        <div class="hotbar-item" data-texture="0"></div>
+        <div class="hotbar-item" data-texture="2"></div>
+        <div class="hotbar-item" data-texture="18"></div>
+        <div class="hotbar-item" data-texture="208"></div>
+        <div class="hotbar-item" data-texture="17"></div>
+        <div class="hotbar-item" data-texture="67"></div>
+        <div class="hotbar-item" data-texture="19"></div>
+        <div class="hotbar-item" data-texture="78"></div>
+      </div>
+    </div>
+    <div id="survival-hud">
+      <div id="health-icons" class="survival-row"></div>
+      <div id="food-icons" class="survival-row"></div>
+      <div id="air-icons" class="survival-row"></div>
+    </div>
+  </div>
+
+  <div id="inventory-screen" aria-hidden="true">
+    <div id="inventory-panel" role="dialog" aria-label="Inventário">
+      <div id="inventory-title">Crafting</div>
+      <canvas id="inventory-preview" width="100" height="108"></canvas>
+      <canvas id="inventory-items" width="352" height="332"></canvas>
+      <div id="inventory-slots"></div>
+      <div id="inventory-counts"></div>
+      <div id="inventory-tooltip" aria-hidden="true"></div>
+      <span id="inventory-cursor-count"></span>
+    </div>
+  </div>
+
+
+  <div id="game-menu" aria-hidden="true">
+    <div id="game-menu-title">Game menu</div>
+    <button class="game-menu-button" id="back-to-game" type="button">Back to game</button>
+    <button class="game-menu-button" id="achievements-button" type="button">Achievements</button>
+    <button class="game-menu-button" id="stats-button" type="button">Statistics</button>
+    <button class="game-menu-button" id="options-button" type="button">Options...</button>
+    <button class="game-menu-button" id="save-quit-title" type="button">Save and quit to title</button>
+  </div>
+
+  <div id="options-screen" aria-hidden="true">
+    <div id="options-title" class="mc-options-title">Options</div>
+    <div id="option-music-label" class="mc-options-label"></div>
+    <input id="option-music" class="mc-option-slider" type="range" min="0" max="100" value="100" aria-label="Music">
+    <div id="option-sound-label" class="mc-options-label"></div>
+    <input id="option-sound" class="mc-option-slider" type="range" min="0" max="100" value="100" aria-label="Sound">
+    <button id="option-invert" class="mc-option-control" type="button"></button>
+    <div id="option-sensitivity-label" class="mc-options-label"></div>
+    <input id="option-sensitivity" class="mc-option-slider" type="range" min="0" max="100" value="50" aria-label="Sensitivity">
+    <div id="option-fov-label" class="mc-options-label"></div>
+    <input id="option-fov" class="mc-option-slider" type="range" min="0" max="100" value="0" aria-label="FOV">
+    <button id="option-difficulty" class="mc-option-control" type="button"></button>
+    <button id="options-video" class="mc-option-control mc-option-done" type="button">Video Settings...</button>
+    <button id="options-controls" class="mc-option-control mc-option-done" type="button">Controls...</button>
+    <button id="options-done" class="mc-option-control mc-option-done" type="button">Done</button>
+  </div>
+  <div id="video-options-screen" aria-hidden="true">
+    <div id="video-options-title" class="mc-options-title">Video Settings</div>
+    <div id="video-options-controls">
+      <button id="option-render-distance" class="mc-option-control" type="button"></button>
+      <button id="option-smooth-lighting" class="mc-option-control" type="button"></button>
+      <button id="option-view-bobbing" class="mc-option-control" type="button"></button>
+    </div>
+    <button id="video-options-done" class="mc-option-control mc-option-done" type="button">Done</button>
+  </div>
+  <div id="controls-screen" aria-hidden="true">
+    <div id="controls-title" class="mc-options-title">Controls</div>
+    <div id="controls-list"></div>
+    <button id="controls-done" class="mc-option-control mc-option-done" type="button">Done</button>
+  </div>
+
+  <div id="chat-screen" aria-hidden="true">
+    <div id="chat-background"></div>
+    <div id="chat-rendered-text"></div>
+    <input id="chat-input" type="text" maxlength="100" autocomplete="off" spellcheck="false" aria-label="Chat">
+  </div>
+
+  <div id="death-screen">
+    <div id="death-title">You died!</div>
+    <div id="death-score">Score: 0</div>
+    <button id="respawn-button" type="button">Respawn</button>
+  </div>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "minecraft-1-browser-port",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Minecraft 1.0 port executado em janela própria",
+  "main": "electron-main.cjs",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^45.2.1"
+  },
+  "allowScripts": {
+    "electron@39.8.10": true
+  }
+}
