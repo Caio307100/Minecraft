@@ -5,7 +5,8 @@
   "description": "Minecraft 1.0 port executado em janela própria",
   "main": "electron-main.cjs",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "extract-assets": "python3 tools/extract-mc10-assets.py"
   },
   "devDependencies": {
     "electron": "^45.2.1"

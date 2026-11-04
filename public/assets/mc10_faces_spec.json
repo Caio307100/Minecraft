@@ -1,0 +1,1812 @@
+{
+  "meta": {
+    "source": "Minecraft 1.0 (1.0.jar), classe acr (RenderBlocks ofuscada), métodos acr.a..acr.f",
+    "jar": "/home/caio/.sklauncher/versions/1.0/1.0.jar",
+    "obfuscated_classes": {
+      "acr": "RenderBlocks",
+      "cv": "Tessellator",
+      "yy": "Block",
+      "kq": "IBlockAccess"
+    },
+    "extraction": "execução concreta do bytecode (interpretador mínimo), 4 chamadas cv.a(DDDDD)V por face",
+    "smooth_lighting_same_vertex_order": true,
+    "unverified": [
+      "fallback de limites fora de [0,1] (UV vira 0 e 15.99) lido só na face a (bottom); não executado nas demais"
+    ]
+  },
+  "constants": {
+    "epsilon": 0.01,
+    "tile_px": 16,
+    "atlas_px": 256,
+    "atlas_tiles_per_row": 16
+  },
+  "parameters": [
+    "minX",
+    "maxX",
+    "minY",
+    "maxY",
+    "minZ",
+    "maxZ",
+    "x",
+    "y",
+    "z",
+    "tex_index",
+    "rotation"
+  ],
+  "position_rule": "vertex = (x + <bound>, y + <bound>, z + <bound>); bound vem de position.x/y/z",
+  "uv_rule": {
+    "tile_origin_px": {
+      "u0": "(tex_index & 15) << 4",
+      "v0": "tex_index & 240"
+    },
+    "u_final": "(u0 + u_px) / 256",
+    "v_final": "(v0 + v_px) / 256",
+    "term": "u_px/v_px = (invert ? 16 - 16*bound : 16*bound) + epsilon_coef*epsilon"
+  },
+  "faces": [
+    {
+      "id": "bottom",
+      "name_pt": "baixo",
+      "side": 0,
+      "bytecode_method": "acr.a",
+      "descriptor": "(Lyy;DDDI)V",
+      "rotation_field": "acr.m",
+      "outward_normal": [
+        0,
+        -1,
+        0
+      ],
+      "winding": "ccw_from_outside",
+      "vertices": [
+        {
+          "index": 1,
+          "position": {
+            "x": "minX",
+            "y": "minY",
+            "z": "maxZ"
+          }
+        },
+        {
+          "index": 2,
+          "position": {
+            "x": "minX",
+            "y": "minY",
+            "z": "minZ"
+          }
+        },
+        {
+          "index": 3,
+          "position": {
+            "x": "maxX",
+            "y": "minY",
+            "z": "minZ"
+          }
+        },
+        {
+          "index": 4,
+          "position": {
+            "x": "maxX",
+            "y": "minY",
+            "z": "maxZ"
+          }
+        }
+      ],
+      "uv_rotations": [
+        {
+          "rotation": 0,
+          "uv": [
+            {
+              "u": {
+                "bound": "minX",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minX"
+              },
+              "v": {
+                "bound": "maxZ",
+                "invert": false,
+                "epsilon_coef": -1,
+                "expr": "16*maxZ-epsilon"
+              }
+            },
+            {
+              "u": {
+                "bound": "minX",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minX"
+              },
+              "v": {
+                "bound": "minZ",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minZ"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxX",
+                "invert": false,
+                "epsilon_coef": -1,
+                "expr": "16*maxX-epsilon"
+              },
+              "v": {
+                "bound": "minZ",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minZ"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxX",
+                "invert": false,
+                "epsilon_coef": -1,
+                "expr": "16*maxX-epsilon"
+              },
+              "v": {
+                "bound": "maxZ",
+                "invert": false,
+                "epsilon_coef": -1,
+                "expr": "16*maxZ-epsilon"
+              }
+            }
+          ]
+        },
+        {
+          "rotation": 1,
+          "uv": [
+            {
+              "u": {
+                "bound": "maxZ",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxZ"
+              },
+              "v": {
+                "bound": "minX",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minX"
+              }
+            },
+            {
+              "u": {
+                "bound": "minZ",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minZ"
+              },
+              "v": {
+                "bound": "minX",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minX"
+              }
+            },
+            {
+              "u": {
+                "bound": "minZ",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minZ"
+              },
+              "v": {
+                "bound": "maxX",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxX"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxZ",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxZ"
+              },
+              "v": {
+                "bound": "maxX",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxX"
+              }
+            }
+          ]
+        },
+        {
+          "rotation": 2,
+          "uv": [
+            {
+              "u": {
+                "bound": "maxZ",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxZ"
+              },
+              "v": {
+                "bound": "minX",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minX"
+              }
+            },
+            {
+              "u": {
+                "bound": "minZ",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minZ"
+              },
+              "v": {
+                "bound": "minX",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minX"
+              }
+            },
+            {
+              "u": {
+                "bound": "minZ",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minZ"
+              },
+              "v": {
+                "bound": "maxX",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxX"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxZ",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxZ"
+              },
+              "v": {
+                "bound": "maxX",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxX"
+              }
+            }
+          ]
+        },
+        {
+          "rotation": 3,
+          "uv": [
+            {
+              "u": {
+                "bound": "minX",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minX"
+              },
+              "v": {
+                "bound": "maxZ",
+                "invert": true,
+                "epsilon_coef": -1,
+                "expr": "16-16*maxZ-epsilon"
+              }
+            },
+            {
+              "u": {
+                "bound": "minX",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minX"
+              },
+              "v": {
+                "bound": "minZ",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minZ"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxX",
+                "invert": true,
+                "epsilon_coef": -1,
+                "expr": "16-16*maxX-epsilon"
+              },
+              "v": {
+                "bound": "minZ",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minZ"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxX",
+                "invert": true,
+                "epsilon_coef": -1,
+                "expr": "16-16*maxX-epsilon"
+              },
+              "v": {
+                "bound": "maxZ",
+                "invert": true,
+                "epsilon_coef": -1,
+                "expr": "16-16*maxZ-epsilon"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "top",
+      "name_pt": "cima",
+      "side": 1,
+      "bytecode_method": "acr.b",
+      "descriptor": "(Lyy;DDDI)V",
+      "rotation_field": "acr.l",
+      "outward_normal": [
+        0,
+        1,
+        0
+      ],
+      "winding": "ccw_from_outside",
+      "vertices": [
+        {
+          "index": 1,
+          "position": {
+            "x": "maxX",
+            "y": "maxY",
+            "z": "maxZ"
+          }
+        },
+        {
+          "index": 2,
+          "position": {
+            "x": "maxX",
+            "y": "maxY",
+            "z": "minZ"
+          }
+        },
+        {
+          "index": 3,
+          "position": {
+            "x": "minX",
+            "y": "maxY",
+            "z": "minZ"
+          }
+        },
+        {
+          "index": 4,
+          "position": {
+            "x": "minX",
+            "y": "maxY",
+            "z": "maxZ"
+          }
+        }
+      ],
+      "uv_rotations": [
+        {
+          "rotation": 0,
+          "uv": [
+            {
+              "u": {
+                "bound": "maxX",
+                "invert": false,
+                "epsilon_coef": -1,
+                "expr": "16*maxX-epsilon"
+              },
+              "v": {
+                "bound": "maxZ",
+                "invert": false,
+                "epsilon_coef": -1,
+                "expr": "16*maxZ-epsilon"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxX",
+                "invert": false,
+                "epsilon_coef": -1,
+                "expr": "16*maxX-epsilon"
+              },
+              "v": {
+                "bound": "minZ",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minZ"
+              }
+            },
+            {
+              "u": {
+                "bound": "minX",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minX"
+              },
+              "v": {
+                "bound": "minZ",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minZ"
+              }
+            },
+            {
+              "u": {
+                "bound": "minX",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minX"
+              },
+              "v": {
+                "bound": "maxZ",
+                "invert": false,
+                "epsilon_coef": -1,
+                "expr": "16*maxZ-epsilon"
+              }
+            }
+          ]
+        },
+        {
+          "rotation": 1,
+          "uv": [
+            {
+              "u": {
+                "bound": "maxZ",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxZ"
+              },
+              "v": {
+                "bound": "maxX",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxX"
+              }
+            },
+            {
+              "u": {
+                "bound": "minZ",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minZ"
+              },
+              "v": {
+                "bound": "maxX",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxX"
+              }
+            },
+            {
+              "u": {
+                "bound": "minZ",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minZ"
+              },
+              "v": {
+                "bound": "minX",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minX"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxZ",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxZ"
+              },
+              "v": {
+                "bound": "minX",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minX"
+              }
+            }
+          ]
+        },
+        {
+          "rotation": 2,
+          "uv": [
+            {
+              "u": {
+                "bound": "maxZ",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxZ"
+              },
+              "v": {
+                "bound": "maxX",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxX"
+              }
+            },
+            {
+              "u": {
+                "bound": "minZ",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minZ"
+              },
+              "v": {
+                "bound": "maxX",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxX"
+              }
+            },
+            {
+              "u": {
+                "bound": "minZ",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minZ"
+              },
+              "v": {
+                "bound": "minX",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minX"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxZ",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxZ"
+              },
+              "v": {
+                "bound": "minX",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minX"
+              }
+            }
+          ]
+        },
+        {
+          "rotation": 3,
+          "uv": [
+            {
+              "u": {
+                "bound": "maxX",
+                "invert": true,
+                "epsilon_coef": -1,
+                "expr": "16-16*maxX-epsilon"
+              },
+              "v": {
+                "bound": "maxZ",
+                "invert": true,
+                "epsilon_coef": -1,
+                "expr": "16-16*maxZ-epsilon"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxX",
+                "invert": true,
+                "epsilon_coef": -1,
+                "expr": "16-16*maxX-epsilon"
+              },
+              "v": {
+                "bound": "minZ",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minZ"
+              }
+            },
+            {
+              "u": {
+                "bound": "minX",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minX"
+              },
+              "v": {
+                "bound": "minZ",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minZ"
+              }
+            },
+            {
+              "u": {
+                "bound": "minX",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minX"
+              },
+              "v": {
+                "bound": "maxZ",
+                "invert": true,
+                "epsilon_coef": -1,
+                "expr": "16-16*maxZ-epsilon"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "north",
+      "name_pt": "norte",
+      "side": 2,
+      "bytecode_method": "acr.c",
+      "descriptor": "(Lyy;DDDI)V",
+      "rotation_field": "acr.h",
+      "outward_normal": [
+        0,
+        0,
+        -1
+      ],
+      "winding": "ccw_from_outside",
+      "vertices": [
+        {
+          "index": 1,
+          "position": {
+            "x": "minX",
+            "y": "maxY",
+            "z": "minZ"
+          }
+        },
+        {
+          "index": 2,
+          "position": {
+            "x": "maxX",
+            "y": "maxY",
+            "z": "minZ"
+          }
+        },
+        {
+          "index": 3,
+          "position": {
+            "x": "maxX",
+            "y": "minY",
+            "z": "minZ"
+          }
+        },
+        {
+          "index": 4,
+          "position": {
+            "x": "minX",
+            "y": "minY",
+            "z": "minZ"
+          }
+        }
+      ],
+      "uv_rotations": [
+        {
+          "rotation": 0,
+          "uv": [
+            {
+              "u": {
+                "bound": "maxX",
+                "invert": false,
+                "epsilon_coef": -1,
+                "expr": "16*maxX-epsilon"
+              },
+              "v": {
+                "bound": "maxY",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxY"
+              }
+            },
+            {
+              "u": {
+                "bound": "minX",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minX"
+              },
+              "v": {
+                "bound": "maxY",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxY"
+              }
+            },
+            {
+              "u": {
+                "bound": "minX",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minX"
+              },
+              "v": {
+                "bound": "minY",
+                "invert": true,
+                "epsilon_coef": -1,
+                "expr": "16-16*minY-epsilon"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxX",
+                "invert": false,
+                "epsilon_coef": -1,
+                "expr": "16*maxX-epsilon"
+              },
+              "v": {
+                "bound": "minY",
+                "invert": true,
+                "epsilon_coef": -1,
+                "expr": "16-16*minY-epsilon"
+              }
+            }
+          ]
+        },
+        {
+          "rotation": 1,
+          "uv": [
+            {
+              "u": {
+                "bound": "minY",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minY"
+              },
+              "v": {
+                "bound": "minX",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minX"
+              }
+            },
+            {
+              "u": {
+                "bound": "minY",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minY"
+              },
+              "v": {
+                "bound": "maxX",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxX"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxY",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxY"
+              },
+              "v": {
+                "bound": "maxX",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxX"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxY",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxY"
+              },
+              "v": {
+                "bound": "minX",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minX"
+              }
+            }
+          ]
+        },
+        {
+          "rotation": 2,
+          "uv": [
+            {
+              "u": {
+                "bound": "minY",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minY"
+              },
+              "v": {
+                "bound": "minX",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minX"
+              }
+            },
+            {
+              "u": {
+                "bound": "minY",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minY"
+              },
+              "v": {
+                "bound": "maxX",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxX"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxY",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxY"
+              },
+              "v": {
+                "bound": "maxX",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxX"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxY",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxY"
+              },
+              "v": {
+                "bound": "minX",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minX"
+              }
+            }
+          ]
+        },
+        {
+          "rotation": 3,
+          "uv": [
+            {
+              "u": {
+                "bound": "maxX",
+                "invert": true,
+                "epsilon_coef": -1,
+                "expr": "16-16*maxX-epsilon"
+              },
+              "v": {
+                "bound": "maxY",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxY"
+              }
+            },
+            {
+              "u": {
+                "bound": "minX",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minX"
+              },
+              "v": {
+                "bound": "maxY",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxY"
+              }
+            },
+            {
+              "u": {
+                "bound": "minX",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minX"
+              },
+              "v": {
+                "bound": "minY",
+                "invert": false,
+                "epsilon_coef": -1,
+                "expr": "16*minY-epsilon"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxX",
+                "invert": true,
+                "epsilon_coef": -1,
+                "expr": "16-16*maxX-epsilon"
+              },
+              "v": {
+                "bound": "minY",
+                "invert": false,
+                "epsilon_coef": -1,
+                "expr": "16*minY-epsilon"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "south",
+      "name_pt": "sul",
+      "side": 3,
+      "bytecode_method": "acr.d",
+      "descriptor": "(Lyy;DDDI)V",
+      "rotation_field": "acr.i",
+      "outward_normal": [
+        0,
+        0,
+        1
+      ],
+      "winding": "ccw_from_outside",
+      "vertices": [
+        {
+          "index": 1,
+          "position": {
+            "x": "minX",
+            "y": "maxY",
+            "z": "maxZ"
+          }
+        },
+        {
+          "index": 2,
+          "position": {
+            "x": "minX",
+            "y": "minY",
+            "z": "maxZ"
+          }
+        },
+        {
+          "index": 3,
+          "position": {
+            "x": "maxX",
+            "y": "minY",
+            "z": "maxZ"
+          }
+        },
+        {
+          "index": 4,
+          "position": {
+            "x": "maxX",
+            "y": "maxY",
+            "z": "maxZ"
+          }
+        }
+      ],
+      "uv_rotations": [
+        {
+          "rotation": 0,
+          "uv": [
+            {
+              "u": {
+                "bound": "minX",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minX"
+              },
+              "v": {
+                "bound": "maxY",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxY"
+              }
+            },
+            {
+              "u": {
+                "bound": "minX",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minX"
+              },
+              "v": {
+                "bound": "minY",
+                "invert": true,
+                "epsilon_coef": -1,
+                "expr": "16-16*minY-epsilon"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxX",
+                "invert": false,
+                "epsilon_coef": -1,
+                "expr": "16*maxX-epsilon"
+              },
+              "v": {
+                "bound": "minY",
+                "invert": true,
+                "epsilon_coef": -1,
+                "expr": "16-16*minY-epsilon"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxX",
+                "invert": false,
+                "epsilon_coef": -1,
+                "expr": "16*maxX-epsilon"
+              },
+              "v": {
+                "bound": "maxY",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxY"
+              }
+            }
+          ]
+        },
+        {
+          "rotation": 1,
+          "uv": [
+            {
+              "u": {
+                "bound": "minY",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minY"
+              },
+              "v": {
+                "bound": "minX",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minX"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxY",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxY"
+              },
+              "v": {
+                "bound": "minX",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minX"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxY",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxY"
+              },
+              "v": {
+                "bound": "maxX",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxX"
+              }
+            },
+            {
+              "u": {
+                "bound": "minY",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minY"
+              },
+              "v": {
+                "bound": "maxX",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxX"
+              }
+            }
+          ]
+        },
+        {
+          "rotation": 2,
+          "uv": [
+            {
+              "u": {
+                "bound": "minY",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minY"
+              },
+              "v": {
+                "bound": "minX",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minX"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxY",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxY"
+              },
+              "v": {
+                "bound": "minX",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minX"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxY",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxY"
+              },
+              "v": {
+                "bound": "maxX",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxX"
+              }
+            },
+            {
+              "u": {
+                "bound": "minY",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minY"
+              },
+              "v": {
+                "bound": "maxX",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxX"
+              }
+            }
+          ]
+        },
+        {
+          "rotation": 3,
+          "uv": [
+            {
+              "u": {
+                "bound": "minX",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minX"
+              },
+              "v": {
+                "bound": "maxY",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxY"
+              }
+            },
+            {
+              "u": {
+                "bound": "minX",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minX"
+              },
+              "v": {
+                "bound": "minY",
+                "invert": false,
+                "epsilon_coef": -1,
+                "expr": "16*minY-epsilon"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxX",
+                "invert": true,
+                "epsilon_coef": -1,
+                "expr": "16-16*maxX-epsilon"
+              },
+              "v": {
+                "bound": "minY",
+                "invert": false,
+                "epsilon_coef": -1,
+                "expr": "16*minY-epsilon"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxX",
+                "invert": true,
+                "epsilon_coef": -1,
+                "expr": "16-16*maxX-epsilon"
+              },
+              "v": {
+                "bound": "maxY",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxY"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "west",
+      "name_pt": "oeste",
+      "side": 4,
+      "bytecode_method": "acr.e",
+      "descriptor": "(Lyy;DDDI)V",
+      "rotation_field": "acr.k",
+      "outward_normal": [
+        -1,
+        0,
+        0
+      ],
+      "winding": "ccw_from_outside",
+      "vertices": [
+        {
+          "index": 1,
+          "position": {
+            "x": "minX",
+            "y": "maxY",
+            "z": "maxZ"
+          }
+        },
+        {
+          "index": 2,
+          "position": {
+            "x": "minX",
+            "y": "maxY",
+            "z": "minZ"
+          }
+        },
+        {
+          "index": 3,
+          "position": {
+            "x": "minX",
+            "y": "minY",
+            "z": "minZ"
+          }
+        },
+        {
+          "index": 4,
+          "position": {
+            "x": "minX",
+            "y": "minY",
+            "z": "maxZ"
+          }
+        }
+      ],
+      "uv_rotations": [
+        {
+          "rotation": 0,
+          "uv": [
+            {
+              "u": {
+                "bound": "maxZ",
+                "invert": false,
+                "epsilon_coef": -1,
+                "expr": "16*maxZ-epsilon"
+              },
+              "v": {
+                "bound": "maxY",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxY"
+              }
+            },
+            {
+              "u": {
+                "bound": "minZ",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minZ"
+              },
+              "v": {
+                "bound": "maxY",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxY"
+              }
+            },
+            {
+              "u": {
+                "bound": "minZ",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minZ"
+              },
+              "v": {
+                "bound": "minY",
+                "invert": true,
+                "epsilon_coef": -1,
+                "expr": "16-16*minY-epsilon"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxZ",
+                "invert": false,
+                "epsilon_coef": -1,
+                "expr": "16*maxZ-epsilon"
+              },
+              "v": {
+                "bound": "minY",
+                "invert": true,
+                "epsilon_coef": -1,
+                "expr": "16-16*minY-epsilon"
+              }
+            }
+          ]
+        },
+        {
+          "rotation": 1,
+          "uv": [
+            {
+              "u": {
+                "bound": "minY",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minY"
+              },
+              "v": {
+                "bound": "maxZ",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxZ"
+              }
+            },
+            {
+              "u": {
+                "bound": "minY",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minY"
+              },
+              "v": {
+                "bound": "minZ",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minZ"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxY",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxY"
+              },
+              "v": {
+                "bound": "minZ",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minZ"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxY",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxY"
+              },
+              "v": {
+                "bound": "maxZ",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxZ"
+              }
+            }
+          ]
+        },
+        {
+          "rotation": 2,
+          "uv": [
+            {
+              "u": {
+                "bound": "minY",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minY"
+              },
+              "v": {
+                "bound": "maxZ",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxZ"
+              }
+            },
+            {
+              "u": {
+                "bound": "minY",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minY"
+              },
+              "v": {
+                "bound": "minZ",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minZ"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxY",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxY"
+              },
+              "v": {
+                "bound": "minZ",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minZ"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxY",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxY"
+              },
+              "v": {
+                "bound": "maxZ",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxZ"
+              }
+            }
+          ]
+        },
+        {
+          "rotation": 3,
+          "uv": [
+            {
+              "u": {
+                "bound": "maxZ",
+                "invert": true,
+                "epsilon_coef": -1,
+                "expr": "16-16*maxZ-epsilon"
+              },
+              "v": {
+                "bound": "maxY",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxY"
+              }
+            },
+            {
+              "u": {
+                "bound": "minZ",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minZ"
+              },
+              "v": {
+                "bound": "maxY",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxY"
+              }
+            },
+            {
+              "u": {
+                "bound": "minZ",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minZ"
+              },
+              "v": {
+                "bound": "minY",
+                "invert": false,
+                "epsilon_coef": -1,
+                "expr": "16*minY-epsilon"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxZ",
+                "invert": true,
+                "epsilon_coef": -1,
+                "expr": "16-16*maxZ-epsilon"
+              },
+              "v": {
+                "bound": "minY",
+                "invert": false,
+                "epsilon_coef": -1,
+                "expr": "16*minY-epsilon"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "east",
+      "name_pt": "leste",
+      "side": 5,
+      "bytecode_method": "acr.f",
+      "descriptor": "(Lyy;DDDI)V",
+      "rotation_field": "acr.j",
+      "outward_normal": [
+        1,
+        0,
+        0
+      ],
+      "winding": "ccw_from_outside",
+      "vertices": [
+        {
+          "index": 1,
+          "position": {
+            "x": "maxX",
+            "y": "minY",
+            "z": "maxZ"
+          }
+        },
+        {
+          "index": 2,
+          "position": {
+            "x": "maxX",
+            "y": "minY",
+            "z": "minZ"
+          }
+        },
+        {
+          "index": 3,
+          "position": {
+            "x": "maxX",
+            "y": "maxY",
+            "z": "minZ"
+          }
+        },
+        {
+          "index": 4,
+          "position": {
+            "x": "maxX",
+            "y": "maxY",
+            "z": "maxZ"
+          }
+        }
+      ],
+      "uv_rotations": [
+        {
+          "rotation": 0,
+          "uv": [
+            {
+              "u": {
+                "bound": "minZ",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minZ"
+              },
+              "v": {
+                "bound": "minY",
+                "invert": true,
+                "epsilon_coef": -1,
+                "expr": "16-16*minY-epsilon"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxZ",
+                "invert": false,
+                "epsilon_coef": -1,
+                "expr": "16*maxZ-epsilon"
+              },
+              "v": {
+                "bound": "minY",
+                "invert": true,
+                "epsilon_coef": -1,
+                "expr": "16-16*minY-epsilon"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxZ",
+                "invert": false,
+                "epsilon_coef": -1,
+                "expr": "16*maxZ-epsilon"
+              },
+              "v": {
+                "bound": "maxY",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxY"
+              }
+            },
+            {
+              "u": {
+                "bound": "minZ",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minZ"
+              },
+              "v": {
+                "bound": "maxY",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxY"
+              }
+            }
+          ]
+        },
+        {
+          "rotation": 1,
+          "uv": [
+            {
+              "u": {
+                "bound": "maxY",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxY"
+              },
+              "v": {
+                "bound": "maxZ",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxZ"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxY",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxY"
+              },
+              "v": {
+                "bound": "minZ",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minZ"
+              }
+            },
+            {
+              "u": {
+                "bound": "minY",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minY"
+              },
+              "v": {
+                "bound": "minZ",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minZ"
+              }
+            },
+            {
+              "u": {
+                "bound": "minY",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minY"
+              },
+              "v": {
+                "bound": "maxZ",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxZ"
+              }
+            }
+          ]
+        },
+        {
+          "rotation": 2,
+          "uv": [
+            {
+              "u": {
+                "bound": "maxY",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxY"
+              },
+              "v": {
+                "bound": "maxZ",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxZ"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxY",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxY"
+              },
+              "v": {
+                "bound": "minZ",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minZ"
+              }
+            },
+            {
+              "u": {
+                "bound": "minY",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minY"
+              },
+              "v": {
+                "bound": "minZ",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minZ"
+              }
+            },
+            {
+              "u": {
+                "bound": "minY",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*minY"
+              },
+              "v": {
+                "bound": "maxZ",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*maxZ"
+              }
+            }
+          ]
+        },
+        {
+          "rotation": 3,
+          "uv": [
+            {
+              "u": {
+                "bound": "minZ",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minZ"
+              },
+              "v": {
+                "bound": "minY",
+                "invert": false,
+                "epsilon_coef": -1,
+                "expr": "16*minY-epsilon"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxZ",
+                "invert": true,
+                "epsilon_coef": -1,
+                "expr": "16-16*maxZ-epsilon"
+              },
+              "v": {
+                "bound": "minY",
+                "invert": false,
+                "epsilon_coef": -1,
+                "expr": "16*minY-epsilon"
+              }
+            },
+            {
+              "u": {
+                "bound": "maxZ",
+                "invert": true,
+                "epsilon_coef": -1,
+                "expr": "16-16*maxZ-epsilon"
+              },
+              "v": {
+                "bound": "maxY",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxY"
+              }
+            },
+            {
+              "u": {
+                "bound": "minZ",
+                "invert": true,
+                "epsilon_coef": 0,
+                "expr": "16-16*minZ"
+              },
+              "v": {
+                "bound": "maxY",
+                "invert": false,
+                "epsilon_coef": 0,
+                "expr": "16*maxY"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
