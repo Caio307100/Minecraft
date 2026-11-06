@@ -19,7 +19,38 @@
     #asset-folder { max-width: 100%; margin: 12px 0; }
     #asset-loader-status { min-height: 48px; color: #bdbdbd; font-size: 14px; overflow-wrap: anywhere; }
 
-    canvas { width: 100vw; height: 100vh; display: block; }
+    canvas { width: 100vw; height: 100vh; display: block; touch-action: none; }
+
+    /* Controles touch: aparecem somente em dispositivos com tela sensível ao toque. */
+    #mobile-controls { display:none; position:fixed; inset:0; z-index:20; pointer-events:none; user-select:none; -webkit-user-select:none; touch-action:none; }
+    #mobile-controls button { pointer-events:auto; touch-action:none; border:2px solid rgba(255,255,255,.65); color:#fff; background:rgba(0,0,0,.42); border-radius:50%; font:600 14px system-ui,sans-serif; text-shadow:1px 1px #000; box-shadow:0 1px 4px #0008; }
+    #mobile-joystick { position:absolute; left:22px; bottom:34px; width:132px; height:132px; border:2px solid #ffffff70; border-radius:50%; background:#0003; pointer-events:auto; touch-action:none; }
+    #mobile-stick { position:absolute; left:39px; top:39px; width:50px; height:50px; border-radius:50%; background:#ffffff70; border:2px solid #fff; pointer-events:none; }
+    #mobile-look-hint { position:absolute; right:12px; top:45%; color:#ffffff70; font:11px system-ui,sans-serif; pointer-events:none; }
+    #mobile-actions { position:absolute; right:16px; bottom:24px; width:154px; height:164px; }
+    #mobile-actions button { position:absolute; width:54px; height:54px; }
+    #mobile-attack { right:0; bottom:48px; width:66px!important; height:66px!important; }
+    #mobile-use { right:72px; bottom:0; }
+    #mobile-jump { right:0; bottom:0; }
+    #mobile-sneak { right:78px; bottom:72px; width:46px!important; height:46px!important; font-size:11px!important; }
+    #mobile-inventory { left:12px; top:16px; width:46px; height:46px; border-radius:8px!important; }
+    #mobile-pause { right:12px; top:16px; width:46px; height:46px; border-radius:8px!important; }
+    #mobile-controls button.active { background:rgba(255,255,255,.42); }
+    @media (pointer: coarse) and (max-width: 900px) {
+      #mobile-controls { display:block; }
+      #hotbar-wrapper { pointer-events:auto; bottom:8px; }
+      #hotbar { touch-action:manipulation; }
+      #survival-hud { bottom:8px; }
+      #mobile-look-hint { display:block; }
+    }
+    @media (pointer: coarse) and (max-width: 560px) {
+      #mobile-joystick { left:12px; bottom:22px; width:116px; height:116px; }
+      #mobile-stick { left:33px; top:33px; }
+      #mobile-actions { right:10px; bottom:16px; transform:scale(.9); transform-origin:bottom right; }
+      #hotbar-wrapper { transform:translateX(-50%) scale(.82); }
+      #survival-hud { transform:translateX(-50%) scale(.82); }
+    }
+
     #debug-overlay {
       position: fixed;
       inset: 0;
@@ -566,6 +597,19 @@
   </div>
   <canvas id="game"></canvas>
   <div id="debug-overlay" aria-hidden="true"></div>
+
+  <div id="mobile-controls" aria-label="Controles para celular">
+    <button id="mobile-inventory" type="button" aria-label="Inventário">INV</button>
+    <button id="mobile-pause" type="button" aria-label="Pausar">Ⅱ</button>
+    <div id="mobile-joystick" aria-label="Movimentação"><div id="mobile-stick"></div></div>
+    <div id="mobile-look-hint">Arraste para olhar</div>
+    <div id="mobile-actions">
+      <button id="mobile-attack" type="button" aria-label="Quebrar ou atacar">⛏</button>
+      <button id="mobile-use" type="button" aria-label="Usar ou colocar bloco">USAR</button>
+      <button id="mobile-jump" type="button" aria-label="Pular">↑</button>
+      <button id="mobile-sneak" type="button" aria-label="Agachar">AG</button>
+    </div>
+  </div>
 
   <div id="hud">
     <div id="crosshair"></div>

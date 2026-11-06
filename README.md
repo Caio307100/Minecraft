@@ -1,5 +1,9 @@
 # Minecraft 1.0 Browser Port
 
+## Controles em dispositivos móveis
+
+Em celulares e tablets com tela sensível ao toque, o port mostra controles na tela: joystick para movimentação, arrasto no lado direito para olhar, botões para atacar/quebrar, usar/colocar blocos, pular, agachar e abrir o inventário. Também é possível tocar nos espaços da hotbar para trocar o item selecionado.
+
 ## Executar no navegador
 
 O projeto é uma aplicação estática: HTML, CSS, JavaScript ES Modules e WebGL 2. Não precisa de servidor Node em produção.

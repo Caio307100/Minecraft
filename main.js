@@ -906,6 +906,8 @@ async function main() {
     const PLAYER_EYE_HEIGHT = 1.62;
 
     const pressedKeys = new Set();
+    const mobileKeys = new Set();
+    let mobileActionDispatch = false;
     let previousFrameTime = 0;
     let musicTickAccumulator = 0;
     let footstepDistance = 0;
@@ -939,7 +941,7 @@ async function main() {
 
 
     canvas.addEventListener('mousedown', event => {
-        if (event.button !== 0 || inventoryOpen || chatOpen || gameMenuOpen || dead) return;
+        if (event.button !== 0 || inventoryOpen || chatOpen || gameMenuOpen || dead || mobileActionDispatch) return;
         legacyAudio.unlock();
         if (document.pointerLockElement !== canvas) {
             const request = canvas.requestPointerLock();
@@ -1925,8 +1927,136 @@ async function main() {
     function getControlCode(id) { return controlBindings.find(binding => binding.id === id)?.code; }
     function isControlDown(id) {
         const code = getControlCode(id);
-        return code ? pressedKeys.has(code) : false;
+        return code ? (pressedKeys.has(code) || mobileKeys.has(id)) : false;
     }
+
+    // Entrada touch: joystick virtual, gesto para câmera e botões de ação.
+    const mobileControls = document.querySelector('#mobile-controls');
+    const mobileJoystick = document.querySelector('#mobile-joystick');
+    const mobileStick = document.querySelector('#mobile-stick');
+    const mobileAttack = document.querySelector('#mobile-attack');
+    const mobileUse = document.querySelector('#mobile-use');
+    const mobileJump = document.querySelector('#mobile-jump');
+    const mobileSneak = document.querySelector('#mobile-sneak');
+    const mobileInventory = document.querySelector('#mobile-inventory');
+    const mobilePause = document.querySelector('#mobile-pause');
+    const mobileMoveControls = ['forward', 'back', 'left', 'right'];
+    let joystickPointerId = null;
+    let lookPointerId = null;
+    let joystickCenter = { x: 0, y: 0 };
+    let lastTouchLook = { x: 0, y: 0 };
+
+    function updateMobileJoystick(event) {
+        const dx = event.clientX - joystickCenter.x;
+        const dy = event.clientY - joystickCenter.y;
+        const radius = 43;
+        const length = Math.hypot(dx, dy);
+        const scale = length > radius ? radius / length : 1;
+        const x = dx * scale;
+        const y = dy * scale;
+        mobileStick.style.transform = `translate(${x}px, ${y}px)`;
+        for (const control of mobileMoveControls) mobileKeys.delete(control);
+        if (-y > 13) mobileKeys.add('forward');
+        if (y > 13) mobileKeys.add('back');
+        if (-x > 13) mobileKeys.add('left');
+        if (x > 13) mobileKeys.add('right');
+    }
+
+    function resetMobileJoystick() {
+        joystickPointerId = null;
+        mobileStick.style.transform = '';
+        for (const control of mobileMoveControls) mobileKeys.delete(control);
+    }
+
+    mobileJoystick.addEventListener('pointerdown', event => {
+        if (event.pointerType === 'mouse' || inventoryOpen || gameMenuOpen || dead) return;
+        event.preventDefault();
+        joystickPointerId = event.pointerId;
+        const rect = mobileJoystick.getBoundingClientRect();
+        joystickCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        mobileJoystick.setPointerCapture(event.pointerId);
+        updateMobileJoystick(event);
+    });
+    mobileJoystick.addEventListener('pointermove', event => {
+        if (event.pointerId === joystickPointerId) { event.preventDefault(); updateMobileJoystick(event); }
+    });
+    mobileJoystick.addEventListener('pointerup', event => { if (event.pointerId === joystickPointerId) resetMobileJoystick(); });
+    mobileJoystick.addEventListener('pointercancel', resetMobileJoystick);
+
+    canvas.addEventListener('pointerdown', event => {
+        if (event.pointerType === 'mouse' || event.clientX < innerWidth * 0.38 ||
+            inventoryOpen || gameMenuOpen || chatOpen || dead) return;
+        event.preventDefault();
+        lookPointerId = event.pointerId;
+        lastTouchLook = { x: event.clientX, y: event.clientY };
+        canvas.setPointerCapture(event.pointerId);
+    });
+    canvas.addEventListener('pointermove', event => {
+        if (event.pointerId !== lookPointerId) return;
+        event.preventDefault();
+        const deltaX = event.clientX - lastTouchLook.x;
+        const deltaY = event.clientY - lastTouchLook.y;
+        lastTouchLook = { x: event.clientX, y: event.clientY };
+        const sensitivity = 0.0045 + mouseSensitivity * 0.006;
+        const deltaYaw = -deltaX * sensitivity;
+        const deltaPitch = deltaY * sensitivity * (invertMouse ? -1 : 1);
+        yaw += deltaYaw;
+        pitch = Math.max(-1.5, Math.min(1.5, pitch + deltaPitch));
+        handLookDeltaYaw += deltaYaw;
+        handLookDeltaPitch += deltaPitch;
+    });
+    const stopMobileLook = event => { if (event.pointerId === lookPointerId) lookPointerId = null; };
+    canvas.addEventListener('pointerup', stopMobileLook);
+    canvas.addEventListener('pointercancel', stopMobileLook);
+
+    function mobileMouseAction(button, down) {
+        if (inventoryOpen || gameMenuOpen || chatOpen || dead) return;
+        mobileActionDispatch = true;
+        canvas.dispatchEvent(new MouseEvent(down ? 'mousedown' : 'mouseup', {
+            bubbles: true, cancelable: true, button, buttons: down ? (button === 0 ? 1 : 2) : 0
+        }));
+        mobileActionDispatch = false;
+    }
+    function bindMobileHold(button, controlId, actionButton = null) {
+        button.addEventListener('pointerdown', event => {
+            if (event.pointerType === 'mouse') return;
+            event.preventDefault();
+            button.setPointerCapture(event.pointerId);
+            if (controlId) mobileKeys.add(controlId);
+            legacyAudio.unlock();
+            button.classList.add('active');
+            if (actionButton !== null) mobileMouseAction(actionButton, true);
+        });
+        const release = () => {
+            if (controlId) mobileKeys.delete(controlId);
+            button.classList.remove('active');
+            if (actionButton !== null) mobileMouseAction(actionButton, false);
+        };
+        button.addEventListener('pointerup', release);
+        button.addEventListener('pointercancel', release);
+        button.addEventListener('lostpointercapture', release);
+    }
+    bindMobileHold(mobileAttack, null, 0);
+    bindMobileHold(mobileUse, null, 2);
+    bindMobileHold(mobileJump, 'jump');
+    bindMobileHold(mobileSneak, 'sneak');
+    mobileInventory.addEventListener('click', () => { if (!dead && !gameMenuOpen) openInventory(); });
+    mobilePause.addEventListener('click', () => { if (!dead && !inventoryOpen && !gameMenuOpen) openGameMenu(); });
+
+    // Toque em um dos nove espaços seleciona diretamente a hotbar.
+    document.querySelector('#hotbar').addEventListener('pointerdown', event => {
+        if (event.pointerType === 'mouse' || !mobileControls || inventoryOpen) return;
+        const rect = event.currentTarget.getBoundingClientRect();
+        const slot = Math.max(0, Math.min(8, Math.floor((event.clientX - rect.left) / (rect.width / 9))));
+        inventory.changeCurrentItem(slot - inventory.currentItem);
+        updateHotbar();
+    });
+
+    window.addEventListener('blur', () => {
+        resetMobileJoystick();
+        mobileKeys.clear();
+        for (const button of [mobileAttack, mobileUse, mobileJump, mobileSneak]) button.classList.remove('active');
+    });
     controlBindings.forEach((binding, index) => {
         const entry = document.createElement('div');
         entry.className = 'mc-control-entry';
@@ -2925,7 +3055,7 @@ function setMeterSprites(element, baseU, fillU, v) {
             setControlBinding(waitingForControl, `Mouse${event.button}`);
             return;
         }
-        if (document.pointerLockElement !== canvas) return;
+        if (document.pointerLockElement !== canvas && !mobileActionDispatch) return;
         if (event.button !== 0 && event.button !== 2) return;
 
         const now = performance.now();
