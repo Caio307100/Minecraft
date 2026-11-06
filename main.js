@@ -890,6 +890,7 @@ async function main() {
     let spawnPoint = null;
     let survivalSpawnInitialized = false;
     let spawnSearchAttempts = 0;
+    let spawnSearchChunkCount = -1;
 
     let flying = false;
     let verticalVelocity = 0;
@@ -1349,39 +1350,44 @@ async function main() {
         buildOneQueuedChunkMesh();
 
         // O spawn só é escolhido depois que a área inicial foi completamente gerada.
-        if (!survivalSpawnInitialized && pendingChunkGeneration.length === 0 && inFlightChunkGenerationKeys.size === 0) {
-            const originX = Math.floor(cameraPosition[0]);
-            const originZ = Math.floor(cameraPosition[2]);
+        if (
+            !survivalSpawnInitialized &&
+            pendingChunkGeneration.length === 0 &&
+            inFlightChunkGenerationKeys.size === 0 &&
+            (loadedChunks.size !== spawnSearchChunkCount || pendingChunkMeshes.size === 0)
+        ) {
+            spawnSearchChunkCount = loadedChunks.size;
             const preferredSpawns = [];
             const fallbackSpawns = [];
+            const unsafeGround = new Set([8, 9, 10, 11, 18, 51, 81]);
 
-            // Procura em toda a área já carregada; uma janela curta pode cair
-            // inteiramente no oceano dependendo da seed aleatória.
-            for (let radius = 0; radius <= 80; radius++) {
-                for (let dz = -radius; dz <= radius; dz++) {
-                    for (let dx = -radius; dx <= radius; dx++) {
-                        if (Math.max(Math.abs(dx), Math.abs(dz)) !== radius) continue;
-                        const x = originX + dx;
-                        const z = originZ + dz;
+            // Examina diretamente as colunas dos chunks carregados.
+            // Evita percorrer um raio fixo de 80 blocos e consultar o mundo
+            // repetidamente, o que pesava muito em CPUs antigas.
+            for (const entry of loadedChunks.values()) {
+                const { chunkX, chunkZ, chunk } = entry;
+                const blocks = chunk.blocks;
+                for (let localX = 0; localX < 16; localX++) {
+                    for (let localZ = 0; localZ < 16; localZ++) {
+                        const column = localX * 2048 + localZ * 128;
                         for (let y = 126; y >= 1; y--) {
-                            const ground = getWorldBlock(x, y, z);
-                            if (ground === null) break;
+                            const ground = blocks[column + y];
                             if (ground === 0) continue;
 
-                            // Considera somente o primeiro bloco sólido da superfície.
-                            // Continuar procurando abaixo podia escolher o chão de uma caverna.
-                            const safeGround = ![8, 9, 10, 11, 18, 51, 81].includes(ground);
+                            const safeGround = !unsafeGround.has(ground);
                             const hasHeadroom =
-                                getWorldBlock(x, y + 1, z) === 0 &&
-                                getWorldBlock(x, y + 2, z) === 0;
-                            // Com o jogador centralizado no bloco, dois blocos
-                            // livres acima garantem espaço para os 1.8 blocos de altura.
+                                blocks[column + y + 1] === 0 &&
+                                blocks[column + y + 2] === 0;
                             if (safeGround && hasHeadroom) {
-                                const candidate = { x, y, z };
+                                const candidate = {
+                                    x: chunkX * 16 + localX,
+                                    y,
+                                    z: chunkZ * 16 + localZ
+                                };
                                 fallbackSpawns.push(candidate);
                                 if (ground === 2) preferredSpawns.push(candidate);
                             }
-                            // Nunca procura um segundo piso abaixo do primeiro bloco.
+                            // Só considera o primeiro bloco não-ar da coluna.
                             break;
                         }
                     }
