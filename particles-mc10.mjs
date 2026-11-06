@@ -81,14 +81,18 @@ function baseParticle(x, y, z, vx, vy, vz) {
   px = px / length * speed * 0.4;
   py = py / length * speed * 0.4 + 0.1;
   pz = pz / length * speed * 0.4;
+  // wc: b/c (UV aleatória), f (escala) e e (duração), nessa ordem.
+  const subU = rand() * 3;
+  const subV = rand() * 3;
   const scale = (rand() * 0.5 + 0.5) * 2;
+  const life = Math.floor(4 / (rand() * 0.9 + 0.1));
   return {
     type: 'base', x, y, z, prevX: x, prevY: y, prevZ: z,
     vx: px, vy: py, vz: pz,
-    age: 0, life: Math.floor(4 / (rand() * 0.9 + 0.1)),
+    age: 0, life,
     gravity: 0, scale, size: 0.1 * scale,
     width: 0.2, height: 0.2,
-    tile: 0, subU: rand() * 3, subV: rand() * 3,
+    tile: 0, subU, subV,
     layer: 0, red: 1, green: 1, blue: 1, alpha: 1,
     noClip: false, dead: false, onGround: false,
     special: null, frame: 0, baseScale: scale
@@ -176,6 +180,7 @@ export function createMinecraft10ParticleEngine({
   },
   getBlockGravity = () => 1,
   getBlockColor = () => 0xffffff,
+  getBlockBounds = () => ({ minX: 0, minY: 0, minZ: 0, maxX: 1, maxY: 1, maxZ: 1 }),
   getItemIconIndex = (id) => ITEM_ICON_INDEX.get(id) ?? 0,
   getPlayerPosition = () => [0, 0, 0],
   particleSetting = 0
@@ -462,16 +467,22 @@ export function createMinecraft10ParticleEngine({
 
   function spawnBlockHit(bx, by, bz, blockId, metadata = 0, face = 1) {
     if (!blockId) return null;
+    // EntityDiggingFX (Minecraft 1.0): sorteia dentro do bounding box
+    // real do bloco, não dentro de um cubo genérico de 0.1 a 0.9.
     const f = 0.1;
-    let x = bx + f + rand() * (1 - 2 * f);
-    let y = by + f + rand() * (1 - 2 * f);
-    let z = bz + f + rand() * (1 - 2 * f);
-    if (face === 0) y = by - f;
-    if (face === 1) y = by + 1 + f;
-    if (face === 2) z = bz - f;
-    if (face === 3) z = bz + 1 + f;
-    if (face === 4) x = bx - f;
-    if (face === 5) x = bx + 1 + f;
+    const bounds = getBlockBounds(bx, by, bz, blockId, metadata) ??
+      { minX: 0, minY: 0, minZ: 0, maxX: 1, maxY: 1, maxZ: 1 };
+    const minX = Number(bounds.minX ?? 0), minY = Number(bounds.minY ?? 0), minZ = Number(bounds.minZ ?? 0);
+    const maxX = Number(bounds.maxX ?? 1), maxY = Number(bounds.maxY ?? 1), maxZ = Number(bounds.maxZ ?? 1);
+    let x = bx + minX + rand() * Math.max(0, maxX - minX - f * 2) + f;
+    let y = by + minY + rand() * Math.max(0, maxY - minY - f * 2) + f;
+    let z = bz + minZ + rand() * Math.max(0, maxZ - minZ - f * 2) + f;
+    if (face === 0) y = by + minY - f;
+    if (face === 1) y = by + maxY + f;
+    if (face === 2) z = bz + minZ - f;
+    if (face === 3) z = bz + maxZ + f;
+    if (face === 4) x = bx + minX - f;
+    if (face === 5) x = bx + maxX + f;
     const p = spawnBlockFragment(x, y, z, 0, 0, 0, blockId, metadata, 0.6);
     if (p) {
       p.vx *= 0.2; p.vy = (p.vy - 0.1) * 0.2 + 0.1; p.vz *= 0.2;

@@ -2362,6 +2362,27 @@ function setMeterSprites(element, baseU, fillU, v) {
         getBlock: getWorldBlock,
         getBlockMetadata: getWorldMetadata,
         getPlayerPosition: () => cameraPosition,
+        // Bounding boxes do JAR 1.0 usadas por EntityDiggingFX ao bater no bloco.
+        getBlockBounds: (x, y, z, blockId, metadata) => {
+            switch (blockId) {
+                case 44: return { minX: 0, minY: 0, minZ: 0, maxX: 1, maxY: 0.5, maxZ: 1 };
+                case 78: return { minX: 0, minY: 0, minZ: 0, maxX: 1, maxY: 2 * (1 + (metadata & 7)) / 16, maxZ: 1 };
+                case 60: return { minX: 0, minY: 0, minZ: 0, maxX: 1, maxY: 15 / 16, maxZ: 1 };
+                case 81: return { minX: 1 / 16, minY: 0, minZ: 1 / 16, maxX: 15 / 16, maxY: 1, maxZ: 15 / 16 };
+                case 26: return { minX: 0, minY: 0, minZ: 0, maxX: 1, maxY: 9 / 16, maxZ: 1 };
+                case 54: return { minX: 1 / 16, minY: 0, minZ: 1 / 16, maxX: 15 / 16, maxY: 14 / 16, maxZ: 15 / 16 };
+                case 85: return { minX: 0.375, minY: 0, minZ: 0.375, maxX: 0.625, maxY: 1, maxZ: 0.625 };
+                case 50: return { minX: 0.4, minY: 0, minZ: 0.4, maxX: 0.6, maxY: 0.6, maxZ: 0.6 };
+                case 37: case 38: return { minX: 0.3, minY: 0, minZ: 0.3, maxX: 0.7, maxY: 0.6, maxZ: 0.7 };
+                case 39: case 40: return { minX: 0.3, minY: 0, minZ: 0.3, maxX: 0.7, maxY: 0.4, maxZ: 0.7 };
+                case 6: case 31: return { minX: 0.1, minY: 0, minZ: 0.1, maxX: 0.9, maxY: 0.8, maxZ: 0.9 };
+                case 59: return { minX: 0, minY: 0, minZ: 0, maxX: 1, maxY: 0.25, maxZ: 1 };
+                case 83: return { minX: 0.125, minY: 0, minZ: 0.125, maxX: 0.875, maxY: 1, maxZ: 0.875 };
+                case 55: case 70: case 72: return { minX: 0, minY: 0, minZ: 0, maxX: 1, maxY: 0.0625, maxZ: 1 };
+                case 66: case 27: case 28: return { minX: 0, minY: 0, minZ: 0, maxX: 1, maxY: 0.125, maxZ: 1 };
+                default: return null;
+            }
+        },
         getBlockColor: (blockId, metadata, x, z) => {
             if (![2, 18, 31, 106].includes(blockId)) return 0xffffff;
             const bx = Math.floor(x);
