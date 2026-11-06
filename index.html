@@ -8,6 +8,17 @@
     * { margin: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; }
     body { background: #171717; overflow: hidden; }
+    #asset-loader {
+      position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center;
+      padding: 24px; background: #171717; color: #fff; font: 16px system-ui, sans-serif;
+    }
+    #asset-loader[hidden] { display: none; }
+    #asset-loader-panel { width: min(560px, 100%); padding: 24px; background: #252525; border: 1px solid #555; }
+    #asset-loader h1 { margin-bottom: 12px; font-size: 22px; }
+    #asset-loader p { margin: 10px 0; line-height: 1.5; color: #ddd; }
+    #asset-folder { max-width: 100%; margin: 12px 0; }
+    #asset-loader-status { min-height: 48px; color: #bdbdbd; font-size: 14px; overflow-wrap: anywhere; }
+
     canvas { width: 100vw; height: 100vh; display: block; }
     #debug-overlay {
       position: fixed;
@@ -544,6 +555,15 @@
   </style>
 </head>
 <body>
+  <div id="asset-loader" hidden>
+    <section id="asset-loader-panel">
+      <h1>Carregar assets do Minecraft 1.0</h1>
+      <p>Selecione a pasta <strong>public/assets</strong> do projeto no seu computador. O site precisa desses arquivos para carregar texturas, interface e sons.</p>
+      <p>Os arquivos serão guardados no IndexedDB deste navegador e não serão enviados para a Vercel.</p>
+      <input id="asset-folder" type="file" webkitdirectory directory multiple>
+      <p id="asset-loader-status" role="status"></p>
+    </section>
+  </div>
   <canvas id="game"></canvas>
   <div id="debug-overlay" aria-hidden="true"></div>
 

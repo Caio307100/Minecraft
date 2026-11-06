@@ -1,4 +1,5 @@
 import { createClimateQuery, grassColor, grassColorIndex, grassPixelsFromRgba } from './climate.mjs';
+import { initializeWebAssets } from './web-assets.mjs';
 import { buildTerrainMesh } from './terrain-mesher.mjs';
 import { createWorldLightingTask, initializeChunkLighting } from './sky-light.mjs';
 import { buildBlockMesh } from './mine-mesher.mjs';
@@ -17,6 +18,8 @@ import {
     FoodStatsMC10, InventoryPlayerMC10, ItemStackMC10, DroppedItemMC10,
     getMinecraft10BlockDrop, createPlayerDrop, createBlockDrop
 } from './survival-mc10.mjs';
+
+await initializeWebAssets();
 
 const canvas = document.querySelector('#game');
 const gl = canvas.getContext('webgl2');
@@ -2063,7 +2066,7 @@ async function main() {
 // qd.java (Minecraft 1.0): desenha primeiro o fundo/borda e depois
 // o preenchimento transparente por cima, sem apagar o contorno.
 function setMeterSprites(element, baseU, fillU, v) {
-    const sprite = "url('./public/assets/mc10/gui/icons.png')";
+    const sprite = `url("${window.mcAssetUrl("./public/assets/mc10/gui/icons.png")}")`;
     element.style.backgroundImage = fillU === null
         ? sprite
         : `${sprite}, ${sprite}`;

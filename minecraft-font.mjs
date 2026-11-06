@@ -129,7 +129,9 @@ export async function loadMinecraftFont() {
     return createMinecraftFont({
         fontText: await fontResponse.text(),
         defaultPixels,
-        alternatePixels
+        alternatePixels,
+        defaultUrl: window.mcAssetUrl?.('./public/assets/mc10/font/default.png') ?? './public/assets/mc10/font/default.png',
+        alternateUrl: window.mcAssetUrl?.('./public/assets/mc10/font/alternate.png') ?? './public/assets/mc10/font/alternate.png'
     });
 }
 
