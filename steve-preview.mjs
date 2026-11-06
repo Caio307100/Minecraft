@@ -7,23 +7,36 @@ import {
 const VERTEX_SHADER = `#version 300 es
 in vec3 a_position;
 in vec2 a_uv;
+in vec3 a_normal;
 uniform mat4 u_mvp;
 uniform mat4 u_model;
 out vec2 v_uv;
+out vec3 v_normal;
 void main() {
     gl_Position = u_mvp * u_model * vec4(a_position, 1.0);
     v_uv = a_uv;
+    v_normal = mat3(u_model) * a_normal;
 }`;
 
 const FRAGMENT_SHADER = `#version 300 es
 precision highp float;
 in vec2 v_uv;
+in vec3 v_normal;
 uniform sampler2D u_skin;
 out vec4 outColor;
 void main() {
     vec4 texel = texture(u_skin, v_uv);
     if (texel.a < 0.1) discard;
-    outColor = texel;
+
+    // rt.b() do Minecraft 1.0: luz ambiente 0.4 e duas luzes difusas 0.6.
+    vec3 normal = normalize(v_normal);
+    vec3 lightA = normalize(vec3(0.2, 1.0, -0.7));
+    vec3 lightB = normalize(vec3(-0.2, 1.0, 0.7));
+    float diffuse = max(dot(normal, lightA), 0.0)
+                  + max(dot(normal, lightB), 0.0);
+    float lighting = min(1.0, 0.4 + 0.6 * diffuse);
+
+    outColor = vec4(texel.rgb * lighting, texel.a);
 }`;
 
 function compileShader(gl, type, source) {
@@ -54,7 +67,8 @@ function createGpuPart(gl, program, mesh) {
 
     const attributes = [
         ['a_position', mesh.positions, 3],
-        ['a_uv', mesh.uvs, 2]
+        ['a_uv', mesh.uvs, 2],
+        ['a_normal', mesh.normals, 3]
     ];
 
     for (const [name, data, size] of attributes) {
@@ -76,9 +90,20 @@ function createGpuPart(gl, program, mesh) {
     return { vao, indexCount: mesh.indices.length, buffers };
 }
 
+function rotationX(angle) {
+    const c = Math.cos(angle);
+    const s = Math.sin(angle);
+    return new Float32Array([
+        1, 0, 0, 0,
+        0, c, s, 0,
+        0, -s, c, 0,
+        0, 0, 0, 1
+    ]);
+}
+
 /**
- * Renderiza o Steve do próprio steve.mjs em um canvas independente,
- * como o preview de personagem da tela hw.java.
+ * Preview do inventário baseado nas transformações de hw.java e na
+ * iluminação fixa configurada por rt.b() no Minecraft 1.0.
  */
 export function createSteveInventoryPreview(canvas, skinImage, math) {
     const gl = canvas.getContext('webgl2', {
@@ -118,7 +143,8 @@ export function createSteveInventoryPreview(canvas, skinImage, math) {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, skinImage);
     gl.uniform1i(textureLocation, 0);
 
-    let yaw = Math.PI;
+    let pointerX = 51;
+    let pointerY = 75;
     let pixelRatio = 0;
 
     function resize() {
@@ -158,14 +184,22 @@ export function createSteveInventoryPreview(canvas, skinImage, math) {
         const mvp = math.multiply(projection, view);
         gl.uniformMatrix4fv(mvpLocation, false, mvp);
 
+        // hw.java calcula os ângulos diretamente pela posição do cursor.
+        const horizontal = Math.atan((pointerX - 51) / 40);
+        const vertical = Math.atan((25 - pointerY) / 40);
+        const bodyYaw = horizontal * 40 * Math.PI / 180;
+        const headYaw = horizontal * 20 * Math.PI / 180;
+        const headPitch = -vertical * 20 * Math.PI / 180;
+        const globalPitch = rotationX(-vertical * 20 * Math.PI / 180);
+
         const matrices = createStevePartMatrices({
             feet: [0, 0, 0],
-            yaw,
+            yaw: Math.PI + bodyYaw,
             walkPhase: 0,
             walkAmount: 0,
             ageTicks: 0,
-            headYaw: 0,
-            headPitch: 0,
+            headYaw,
+            headPitch,
             swingProgress: 0,
             sneaking: false
         });
@@ -173,19 +207,22 @@ export function createSteveInventoryPreview(canvas, skinImage, math) {
         for (const name of STEVE_PART_ORDER) {
             const part = parts[name];
             gl.bindVertexArray(part.vao);
-            gl.uniformMatrix4fv(modelLocation, false, matrices[name] ?? identity);
+            const local = matrices[name] ?? identity;
+            const model = math.multiply(globalPitch, local);
+            gl.uniformMatrix4fv(modelLocation, false, model);
             gl.drawElements(gl.TRIANGLES, part.indexCount, gl.UNSIGNED_SHORT, 0);
         }
         gl.bindVertexArray(null);
         return pixelRatio;
     }
 
-    function setYaw(value) {
-        if (!Number.isFinite(value)) return;
-        yaw = value;
+    function setLook(x, y) {
+        if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+        pointerX = x;
+        pointerY = y;
         render();
     }
 
     render();
-    return { render, setYaw };
+    return { render, setLook };
 }

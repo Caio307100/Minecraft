@@ -1,7 +1,8 @@
 import { createClimateQuery, grassColor, grassColorIndex, grassPixelsFromRgba } from './climate.mjs';
 import { initializeWebAssets } from './web-assets.mjs';
 import { buildTerrainMesh } from './terrain-mesher.mjs';
-import { createWorldLightingTask, initializeChunkLighting } from './sky-light.mjs';
+import { createWorldLightingTask, initializeChunkLighting, refreshSkyLightColumn } from './sky-light.mjs';
+import { createMinecraft10Lightmap } from './lightmap-mc10.mjs';
 import { buildBlockMesh } from './mine-mesher.mjs';
 import { createLegacyAudio } from './legacy-audio.mjs';
 import { createWaterSimulation } from './water-simulation.mjs';
@@ -116,6 +117,7 @@ in vec3 a_position;
 in vec2 a_uv;
 in vec3 a_normal;
 in vec3 a_color;
+in vec2 a_light;
 in float a_alpha;
 
 uniform mat4 u_mvp;
@@ -125,6 +127,7 @@ uniform vec3 u_offset;
 out vec2 v_uv;
 out vec3 v_normal;
 out vec3 v_color;
+out vec2 v_light;
 out float v_alpha;
 out vec3 v_worldPosition;
 
@@ -136,6 +139,7 @@ void main() {
     v_uv = a_uv;
     v_normal = mat3(u_model) * a_normal;
     v_color = a_color;
+    v_light = a_light;
     v_alpha = a_alpha;
 }`;
 
@@ -145,21 +149,26 @@ precision highp float;
 in vec2 v_uv;
 in vec3 v_normal;
 in vec3 v_color;
+in vec2 v_light;
 in float v_alpha;
 in vec3 v_worldPosition;
 
 uniform sampler2D u_texture;
+uniform sampler2D u_lightmap;
+uniform float u_applyLightmap;
 uniform float u_alphaMultiplier;
 uniform float u_alphaTest;
 uniform float u_underwater;
 uniform vec3 u_cameraPosition;
 uniform float u_handLighting;
 uniform float u_handLight;
+uniform vec2 u_handLightUv;
 
 out vec4 outColor;
 
 void main() {
     float shade;
+    vec3 handLightColor = vec3(1.0);
 
     if (u_handLighting > 0.5) {
         vec3 normal = normalize(v_normal);
@@ -168,6 +177,7 @@ void main() {
         vec3 lightB = normalize(vec3(0.2, 1.0, 0.7));
         float diffuse = max(dot(normal, lightA), 0.0)
                       + max(dot(normal, lightB), 0.0);
+        handLightColor = texture(u_lightmap, u_handLightUv).rgb;
         shade = min(1.0, 0.4 + 0.6 * diffuse) * u_handLight;
     } else if (v_normal.y > 0.5) shade = 1.0;
     else if (v_normal.y < -0.5) shade = 0.5;
@@ -178,7 +188,12 @@ void main() {
     // Folhas e demais texturas recortadas do terrain.png usam alpha-test,
     // não transparência por mistura. O atlas original tem alpha binário.
     if (u_alphaTest > 0.5 && texel.a < 0.5) discard;
-    vec3 finalColor = texel.rgb * v_color * shade;
+    // O JAR usa uma textura 16x16 RGB: eixo X = block light, eixo Y = sky light.
+    // As coordenadas apontam para o centro dos texels e preservam interpolação bilinear.
+    vec2 lightmapUv = (clamp(v_light.yx, 0.0, 1.0) * 15.0 + 0.5) / 16.0;
+    vec3 worldLight = texture(u_lightmap, lightmapUv).rgb;
+    vec3 particleAwareLight = mix(vec3(1.0), worldLight, u_applyLightmap);
+    vec3 finalColor = texel.rgb * v_color * shade * particleAwareLight * handLightColor;
 
     if (u_underwater > 0.5) {
         float distanceToCamera =
@@ -573,6 +588,8 @@ async function main() {
         // de branco para preservar a cor original da textura do atlas.
         const colorData = mesh.colors ?? new Float32Array(mesh.positions.length).fill(1);
         const colorBuffer = createBuffer(gl.ARRAY_BUFFER, colorData);
+        const lightData = mesh.lights ?? new Float32Array(mesh.positions.length / 3 * 2).fill(1);
+        const lightBuffer = createBuffer(gl.ARRAY_BUFFER, lightData);
         const alphaData = mesh.alphas ?? new Float32Array(mesh.positions.length / 3).fill(1);
         const alphaBuffer = createBuffer(gl.ARRAY_BUFFER, alphaData);
         const indexBuffer = createBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.indices);
@@ -588,6 +605,7 @@ async function main() {
         attribute('a_uv', uvBuffer, 2);
         attribute('a_normal', normalBuffer, 3);
         attribute('a_color', colorBuffer, 3);
+        attribute('a_light', lightBuffer, 2);
         attribute('a_alpha', alphaBuffer, 1);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
@@ -602,7 +620,8 @@ async function main() {
                 normalBuffer,
                 colorBuffer,
                 alphaBuffer,
-                indexBuffer
+                indexBuffer,
+                lightBuffer
             ]
         };
     }
@@ -777,6 +796,34 @@ async function main() {
     const offsetLocation = gl.getUniformLocation(program, 'u_offset');
 
     gl.uniform1i(gl.getUniformLocation(program, 'u_texture'), 0);
+    gl.uniform1i(gl.getUniformLocation(program, 'u_lightmap'), 1);
+    gl.uniform1f(gl.getUniformLocation(program, 'u_applyLightmap'), 1.0);
+
+    // Textura RGB 16x16 equivalente ao lightmap do adt.e() no JAR 1.0.
+    const lightmapTexture = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, lightmapTexture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(
+        gl.TEXTURE_2D, 0, gl.RGBA, 16, 16, 0,
+        gl.RGBA, gl.UNSIGNED_BYTE, createMinecraft10Lightmap()
+    );
+
+    let torchFlicker = 0;
+    let torchFlickerVelocity = 0;
+    function updateMinecraft10Lightmap() {
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, lightmapTexture);
+        gl.texSubImage2D(
+            gl.TEXTURE_2D, 0, 0, 0, 16, 16,
+            gl.RGBA, gl.UNSIGNED_BYTE,
+            createMinecraft10Lightmap({ torchFlicker })
+        );
+        gl.activeTexture(gl.TEXTURE0);
+    }
 
     gl.activeTexture(gl.TEXTURE0);
 
@@ -800,9 +847,12 @@ async function main() {
         gl.getUniformLocation(program, 'u_handLighting');
     const handLightLocation =
         gl.getUniformLocation(program, 'u_handLight');
+    const handLightUvLocation =
+        gl.getUniformLocation(program, 'u_handLightUv');
 
     gl.uniform1f(handLightingLocation, 0.0);
     gl.uniform1f(handLightLocation, 1.0);
+    const applyLightmapLocation = gl.getUniformLocation(program, 'u_applyLightmap');
 
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);
@@ -912,6 +962,7 @@ async function main() {
     let previousFrameTime = 0;
     let musicTickAccumulator = 0;
     let footstepDistance = 0;
+    let sprintParticleAccumulator = 0;
     let limbSwing = 0;
     let limbSwingAmount = 0;
     let viewBobWalkDistance = 0;
@@ -1805,15 +1856,16 @@ async function main() {
     }
 
     inventoryPanel.addEventListener('contextmenu', event => event.preventDefault());
-    inventoryPanel.addEventListener('mousemove', event => {
+    document.addEventListener('mousemove', event => {
+        if (!inventoryOpen) return;
         const rect = inventoryPanel.getBoundingClientRect();
         const scale = rect.width / 176 || 1;
         inventoryPointer = {
             x: (event.clientX - rect.left) / scale,
             y: (event.clientY - rect.top) / scale
         };
-        // hw.java turns the player preview toward the cursor.
-        inventoryPreview?.setYaw(Math.PI + (inventoryPointer.x - 51) / 40);
+        // hw.java atualiza o olhar mesmo quando o cursor sai do painel.
+        inventoryPreview?.setLook(inventoryPointer.x, inventoryPointer.y);
         renderInventoryScreen();
     });
     createInventorySlotButtons();
@@ -2523,7 +2575,7 @@ function setMeterSprites(element, baseU, fillU, v) {
             }
         },
         getBlockColor: (blockId, metadata, x, z) => {
-            if (![2, 18, 31, 106].includes(blockId)) return 0xffffff;
+            if (![18, 31, 106].includes(blockId)) return 0xffffff;
             const bx = Math.floor(x);
             const bz = Math.floor(z);
             const key = String(bx) + ',' + String(bz);
@@ -2533,7 +2585,7 @@ function setMeterSprites(element, baseU, fillU, v) {
                 if (particleColorCache.size > 256) particleColorCache.clear();
                 particleColorCache.set(key, climateCell);
             }
-            if (blockId === 2 || blockId === 31) {
+            if (blockId === 31) {
                 return climateCell.grass ?? grassColor(grassPixels, climateCell.temperature, climateCell.rainfall);
             }
             const colorIndex = grassColorIndex(climateCell.temperature, climateCell.rainfall).index;
@@ -2563,6 +2615,24 @@ function setMeterSprites(element, baseU, fillU, v) {
             }
             if (blockId === null) continue;
             const metadata = getWorldMetadata(x, y, z);
+
+            // bg.b() no Minecraft 1.0: tochas emitem fumaça e chama.
+            if (blockId === 50) {
+                const direction = metadata & 7;
+                const px = x + 0.5;
+                const py = y + 0.7;
+                const pz = z + 0.5;
+                const offset = 0.27;
+                let sx = px, sy = py, sz = pz;
+                if (direction === 1) sx -= offset;
+                else if (direction === 2) sx += offset;
+                else if (direction === 3) sz -= offset;
+                else if (direction === 4) sz += offset;
+                else sy = y;
+                particleEngine.spawn('smoke', sx, sy, sz);
+                particleEngine.spawn('flame', sx, sy, sz);
+                continue;
+            }
 
             if (blockId === 110 && Math.floor(Math.random() * 10) === 0) {
                 particleEngine.spawn('townaura', x + Math.random(), y + 1.1, z + Math.random());
@@ -2689,26 +2759,24 @@ function setMeterSprites(element, baseU, fillU, v) {
         }
     }
 
-    // Amostra a luz do céu na posição dos pés, como EntityRenderer.renderHand.
-    // O mundo atual ainda não possui propagação de block light nem ciclo solar.
-    function getFirstPersonSkyLight() {
+    // Usa os níveis reais de sky light e block light calculados no chunk,
+    // incluindo luz ambiente propagada lateralmente em cavernas e construções.
+    function getFirstPersonLightLevels() {
         const blockX = Math.floor(cameraPosition[0]);
-        const blockY = Math.floor(cameraPosition[1]);
+        const blockY = Math.max(0, Math.min(127, Math.floor(cameraPosition[1])));
         const blockZ = Math.floor(cameraPosition[2]);
-        if (blockY < 0 || blockY >= 128) return 0;
+        const chunkX = Math.floor(blockX / 16);
+        const chunkZ = Math.floor(blockZ / 16);
+        const entry = loadedChunks.get(`${chunkX},${chunkZ}`);
+        if (!entry) return { sky: 15, block: 0 };
 
-        let skyLight = 15;
-        for (let y = 127; y > blockY; y--) {
-            const block = getWorldBlock(blockX, y, blockZ);
-            if (block === null) return 15; // chunk vizinho ainda não carregado
-            if (block === 8 || block === 9) {
-                skyLight = Math.max(0, skyLight - 3);
-            } else if (block !== 0) {
-                return 0;
-            }
-            if (skyLight === 0) return 0;
-        }
-        return skyLight;
+        const localX = blockX - chunkX * 16;
+        const localZ = blockZ - chunkZ * 16;
+        const index = localX * 2048 + localZ * 128 + blockY;
+        return {
+            sky: entry.chunk.skyLight?.[index] ?? 15,
+            block: entry.chunk.blockLight?.[index] ?? 0
+        };
     }
 
     // O JAR usa um nibble (4 bits) por bloco. Índice: x*2048 + z*128 + y.
@@ -2972,6 +3040,10 @@ function setMeterSprites(element, baseU, fillU, v) {
         entry.chunk.blocks[index] = blockId;
         writeChunkMetadata(entry, index, metadata);
         rememberChunkBlock(cx, cz, index, blockId, metadata);
+        // Atualiza a luz solar direta da coluna imediatamente. O recálculo
+        // propagado continua incremental, mas não deixa a sombra antiga presa
+        // enquanto a tarefa de iluminação dos chunks termina.
+        refreshSkyLightColumn(entry.chunk, lx, lz);
         waterSimulation.notifyBlockChange(x, y, z);
         // Alterações de blocos recalculam a iluminação apenas na vizinhança
         // afetada, em vez de reiniciar o cálculo de todos os chunks carregados.
@@ -3266,7 +3338,9 @@ function setMeterSprites(element, baseU, fillU, v) {
             return;
         }
 
-        if (gpuTimerExtension) {
+        // Consultas de tempo da GPU são instrumentação do F3, não trabalho
+        // necessário ao jogo. Mantê-las desligadas evita overhead em todo frame.
+        if (gpuTimerExtension && debugInfo) {
             const disjoint = gl.getParameter(gpuTimerExtension.GPU_DISJOINT_EXT);
             while (gpuTimerQueries.length) {
                 const pending = gpuTimerQueries[0];
@@ -3284,6 +3358,14 @@ function setMeterSprites(element, baseU, fillU, v) {
         musicTickAccumulator += elapsedTime * 1000;
         debugParticleTickMs = 0;
         while (musicTickAccumulator >= MINE_TICK_MS) {
+            // adt.d() do JAR: passeio aleatório amortecido do flicker das tochas.
+            torchFlickerVelocity +=
+                (Math.random() - Math.random()) *
+                Math.random() * Math.random();
+            torchFlickerVelocity *= 0.9;
+            torchFlicker += torchFlickerVelocity - torchFlicker;
+            updateMinecraft10Lightmap();
+
             const soundTickStartedAt = performance.now();
             legacyAudio.tickMusic();
             debugFrameSoundMs += performance.now() - soundTickStartedAt;
@@ -3594,7 +3676,7 @@ function setMeterSprites(element, baseU, fillU, v) {
 
             const jumpPressed = isControlDown('jump');
 
-            if (jumpPressed && !jumpKeyWasDown && grounded) {
+            if (jumpPressed && grounded) {
                 const sprintingJump = isSprinting;
                 verticalVelocity = 8.5;
                 // Preserva a velocidade de corrida no instante da decolagem.
@@ -3638,6 +3720,33 @@ function setMeterSprites(element, baseU, fillU, v) {
         }
 
         inWater = bodyInWater();
+
+        // ia.w() do Minecraft 1.0: enquanto sprinta, emite tilecrack
+        // do bloco sob os pés a cada tick de entidade (20 vezes/s).
+        if (sprinting && !dead && !flying && !inWater) {
+            sprintParticleAccumulator += deltaTime;
+            while (sprintParticleAccumulator >= 0.05) {
+                sprintParticleAccumulator -= 0.05;
+                const feetY = cameraPosition[1] - PLAYER_EYE_HEIGHT;
+                const blockX = Math.floor(cameraPosition[0]);
+                const blockY = Math.floor(feetY - 0.2);
+                const blockZ = Math.floor(cameraPosition[2]);
+                const blockId = getWorldBlock(blockX, blockY, blockZ);
+                if (blockId > 0) {
+                    particleEngine.spawn(
+                        `tilecrack_${blockId}`,
+                        cameraPosition[0] + (Math.random() - 0.5) * (PLAYER_RADIUS * 2),
+                        feetY + 0.1,
+                        cameraPosition[2] + (Math.random() - 0.5) * (PLAYER_RADIUS * 2),
+                        -horizontalVelocityX * 4,
+                        1.5,
+                        -horizontalVelocityZ * 4
+                    );
+                }
+            }
+        } else {
+            sprintParticleAccumulator = 0;
+        }
 
         if (!dead && deltaTime > 0) {
             const dx = cameraPosition[0] - frameStartX;
@@ -4200,6 +4309,7 @@ function setMeterSprites(element, baseU, fillU, v) {
             gl.uniform3f(cameraPositionLocation, eye[0], eye[1], eye[2]);
             gl.uniform1f(handLightingLocation, 0.0);
             gl.uniform1f(handLightLocation, 1.0);
+            gl.uniform1f(applyLightmapLocation, 0.0);
             gl.uniform1f(alphaTestLocation, 0.0);
             gl.uniform1f(alphaMultiplierLocation, 1.0);
             gl.uniform1f(underwaterLocation, underwater ? 1.0 : 0.0);
@@ -4227,6 +4337,7 @@ function setMeterSprites(element, baseU, fillU, v) {
                 drawParticleMesh(particleExplosionGpu, particleMeshes.explosions, explosionTexture);
             }
         }
+        gl.uniform1f(applyLightmapLocation, 1.0);
         debugParticlesMs = performance.now() - particleWorkStartedAt;
 
         // Crack overlay: Minecraft 1.0 damage stages 0..9 (terrain tiles 240..249).
@@ -4318,6 +4429,13 @@ function setMeterSprites(element, baseU, fillU, v) {
             gl.uniform1f(alphaTestLocation, 1.0);
             gl.uniform1f(underwaterLocation, 0.0);
             gl.uniform1f(handLightingLocation, 1.0);
+            const handLight = getFirstPersonLightLevels();
+            // O lightmap do JAR usa X=block light e Y=sky light.
+            gl.uniform2f(
+                handLightUvLocation,
+                (handLight.block + 0.5) / 16,
+                (handLight.sky + 0.5) / 16
+            );
             // RenderHelper.enableStandardItemLighting() do Minecraft 1.0
             // usa iluminação fixa de duas direções, independente da luz do mundo.
             gl.uniform1f(handLightLocation, 1.0);
@@ -4365,7 +4483,7 @@ function setMeterSprites(element, baseU, fillU, v) {
             gl.uniform1f(handLightLocation, 1.0);
         }
 
-        if (gpuTimerExtension && activeGpuTimerQuery) {
+        if (gpuTimerExtension && debugInfo && activeGpuTimerQuery) {
             gl.endQuery(gpuTimerExtension.TIME_ELAPSED_EXT);
             gpuTimerQueries.push(activeGpuTimerQuery);
             activeGpuTimerQuery = null;

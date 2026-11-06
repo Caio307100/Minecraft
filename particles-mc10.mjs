@@ -221,8 +221,7 @@ export function createMinecraft10ParticleEngine({
     p.blue *= (rgb & 255) / 255;
     p.scale *= 0.5 * size;
     p.size = 0.1 * p.scale;
-    p.subU = rand() * 3;
-    p.subV = rand() * 3;
+    // mp.java herda b/c aleatórios do construtor wc; não os sorteia de novo.
     return add(p);
   }
 
@@ -725,11 +724,21 @@ export function createMinecraft10ParticleEngine({
     tickBase(p, getBlock);
   }
 
+  const EMPTY_PARTICLE_MESH = Object.freeze({
+    positions: new Float32Array(0), uvs: new Float32Array(0),
+    normals: new Float32Array(0), colors: new Float32Array(0),
+    alphas: new Float32Array(0), indices: new Uint16Array(0)
+  });
+
   function buildLayerMesh(list, partialTick, yaw, pitch, layer) {
+    if (list.length === 0) return EMPTY_PARTICLE_MESH;
     const positions = [], uvs = [], normals = [], colors = [], alphas = [], indices = [];
+    // EntityRenderer/EffectRenderer 1.0 camera basis (f.java):
+    // f3=cos(yaw), f4=cos(pitch), f5=sin(yaw),
+    // f6=-sin(yaw)*sin(pitch), f7=cos(yaw)*sin(pitch).
     const cy = Math.cos(yaw), sy = Math.sin(yaw);
     const sp = Math.sin(pitch), cp = Math.cos(pitch);
-    const f3 = cy, f4 = sy, f5 = -sy * sp, f6 = cy * sp, f7 = cp;
+    const f3 = cy, f4 = cp, f5 = sy, f6 = -sy * sp, f7 = cy * sp;
     for (const p of list) {
       if (p.dead || p.special === 'emitter') continue;
       const x = p.prevX + (p.x - p.prevX) * partialTick;
@@ -789,10 +798,14 @@ export function createMinecraft10ParticleEngine({
   }
 
   function buildExplosionMesh(partialTick, yaw, pitch) {
+    if (explosions.length === 0) return EMPTY_PARTICLE_MESH;
     const positions = [], uvs = [], normals = [], colors = [], alphas = [], indices = [];
+    // EntityRenderer/EffectRenderer 1.0 camera basis (f.java):
+    // f3=cos(yaw), f4=cos(pitch), f5=sin(yaw),
+    // f6=-sin(yaw)*sin(pitch), f7=cos(yaw)*sin(pitch).
     const cy = Math.cos(yaw), sy = Math.sin(yaw);
     const sp = Math.sin(pitch), cp = Math.cos(pitch);
-    const f3 = cy, f4 = sy, f5 = -sy * sp, f6 = cy * sp, f7 = cp;
+    const f3 = cy, f4 = cp, f5 = sy, f6 = -sy * sp, f7 = cy * sp;
     for (const p of explosions) {
       if (p.dead) continue;
       const frame = Math.floor(((p.age + partialTick) * 15) / p.life);

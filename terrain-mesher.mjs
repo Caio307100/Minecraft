@@ -37,6 +37,7 @@ function createBucket() {
         uvs: [],
         normals: [],
         colors: [],
+        lights: [],
         indices: [],
         faceCount: 0
     };
@@ -48,6 +49,7 @@ function finishBucket(bucket) {
         uvs: new Float32Array(bucket.uvs),
         normals: new Float32Array(bucket.normals),
         colors: new Float32Array(bucket.colors),
+        lights: new Float32Array(bucket.lights),
         indices: new Uint32Array(bucket.indices),
         vertexCount: bucket.positions.length / 3,
         faceCount: bucket.faceCount
@@ -104,70 +106,32 @@ export function buildTerrainMesh(spec, chunk, neighborChunks = new Map(), option
         return template;
     }
 
+    // Cache dos 8 vizinhos: evita montar strings e consultar Map em cada
+    // amostra de bloco/luz durante a construção da malha.
+    const neighborGrid = new Array(9);
+    for (let dz = -1; dz <= 1; dz++) {
+        for (let dx = -1; dx <= 1; dx++) {
+            neighborGrid[(dz + 1) * 3 + dx + 1] =
+                dx === 0 && dz === 0
+                    ? chunk
+                    : neighborChunks.get(`${chunk.chunkX + dx},${chunk.chunkZ + dz}`) ?? null;
+        }
+    }
+
     const blockAt = (x, y, z) => {
         if (y < 0 || y >= HEIGHT) return null;
 
-        let targetX = chunk.chunkX;
-        let targetZ = chunk.chunkZ;
-        let localX = x;
-        let localZ = z;
+        let dx = 0;
+        let dz = 0;
+        if (x < 0) { dx = -1; x += SIZE; }
+        else if (x >= SIZE) { dx = 1; x -= SIZE; }
+        if (z < 0) { dz = -1; z += SIZE; }
+        else if (z >= SIZE) { dz = 1; z -= SIZE; }
 
-        if (localX < 0) {
-            targetX--;
-            localX += SIZE;
-        } else if (localX >= SIZE) {
-            targetX++;
-            localX -= SIZE;
-        }
-
-        if (localZ < 0) {
-            targetZ--;
-            localZ += SIZE;
-        } else if (localZ >= SIZE) {
-            targetZ++;
-            localZ -= SIZE;
-        }
-
-        if (targetX === chunk.chunkX && targetZ === chunk.chunkZ) {
-            return chunk.blocks[localX * 2048 + localZ * HEIGHT + y];
-        }
-
-        const neighbor = neighborChunks.get(`${targetX},${targetZ}`);
-
-        if (!neighbor) return null;
-
-        return neighbor.blocks[localX * 2048 + localZ * HEIGHT + y];
+        const source = neighborGrid[(dz + 1) * 3 + dx + 1];
+        if (!source) return null;
+        return source.blocks[x * 2048 + z * HEIGHT + y];
     };
-
-    function skyLightAt(x, y, z) {
-        if (y < 0) return 0;
-        if (y >= HEIGHT) return 15;
-        let targetX = chunk.chunkX;
-        let targetZ = chunk.chunkZ;
-        let localX = x;
-        let localZ = z;
-        if (localX < 0) { targetX--; localX += SIZE; }
-        else if (localX >= SIZE) { targetX++; localX -= SIZE; }
-        if (localZ < 0) { targetZ--; localZ += SIZE; }
-        else if (localZ >= SIZE) { targetZ++; localZ -= SIZE; }
-        const source = targetX === chunk.chunkX && targetZ === chunk.chunkZ
-            ? chunk
-            : neighborChunks.get(`${targetX},${targetZ}`);
-        const index = localX * 2048 + localZ * HEIGHT + y;
-        return Math.max(source?.skyLight?.[index] ?? 0, source?.blockLight?.[index] ?? 0);
-    }
-
-    // k.java: tabela de brilho usada pelo lightmap do Minecraft 1.0.
-    const LEGACY_LIGHT_BRIGHTNESS = Array.from({ length: 16 }, (_, level) => {
-        const darkness = 1 - level / 15;
-        return (1 - darkness) / (darkness * 3 + 1);
-    });
-
-    function getLegacyLightBrightness(level) {
-        return LEGACY_LIGHT_BRIGHTNESS[
-            Math.max(0, Math.min(15, Math.round(level)))
-        ];
-    }
 
     function getLocalBlockMetadata(x, z, y) {
         const index = x * 2048 + z * HEIGHT + y;
@@ -183,6 +147,24 @@ export function buildTerrainMesh(spec, chunk, neighborChunks = new Map(), option
         return true;
     }
 
+    function getPackedLightAt(x, y, z) {
+        if (y < 0) return 0;
+        if (y >= HEIGHT) return 240;
+
+        let dx = 0;
+        let dz = 0;
+        if (x < 0) { dx = -1; x += SIZE; }
+        else if (x >= SIZE) { dx = 1; x -= SIZE; }
+        if (z < 0) { dz = -1; z += SIZE; }
+        else if (z >= SIZE) { dz = 1; z -= SIZE; }
+
+        const source = neighborGrid[(dz + 1) * 3 + dx + 1];
+        const index = x * 2048 + z * HEIGHT + y;
+        const sky = source?.skyLight?.[index] ?? 0;
+        const block = source?.blockLight?.[index] ?? 0;
+        return (sky << 4) | block;
+    }
+
     // Port do cálculo de iluminação por vértice de RenderBlocks (acr.java).
     // yy.f() no JAR retorna 0.2 para um bloco opaco e 1.0 para espaço aberto.
     function getLegacyBlockBrightness(blockId) {
@@ -194,83 +176,35 @@ export function buildTerrainMesh(spec, chunk, neighborChunks = new Map(), option
         const normalAxis = nx !== 0 ? 'x' : ny !== 0 ? 'y' : 'z';
         const tangentAxes = ['x', 'y', 'z'].filter(axis => axis !== normalAxis);
         const signs = {};
-
-        for (const axis of tangentAxes) {
-            signs[axis] = vertexPosition[axis] <= 0.5 ? -1 : 1;
-        }
-
-        const offset = (axis, amount) => ({
-            x: axis === 'x' ? amount : 0,
-            y: axis === 'y' ? amount : 0,
-            z: axis === 'z' ? amount : 0
-        });
+        for (const axis of tangentAxes) signs[axis] = vertexPosition[axis] <= 0.5 ? -1 : 1;
+        const offset = (axis, amount) => ({ x: axis === 'x' ? amount : 0, y: axis === 'y' ? amount : 0, z: axis === 'z' ? amount : 0 });
         const a = offset(tangentAxes[0], signs[tangentAxes[0]]);
         const b = offset(tangentAxes[1], signs[tangentAxes[1]]);
-        const sample = (da, db) => blockAt(
-            x + nx + da.x + db.x,
-            y + ny + da.y + db.y,
-            z + nz + da.z + db.z
-        );
-
-        const faceNeighbor = sample({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0 });
-        const sideA = sample(a, { x: 0, y: 0, z: 0 });
-        const sideB = sample(b, { x: 0, y: 0, z: 0 });
-        // acr.java: cada face usa a diagonal se qualquer lateral adjacente
-        // estiver opaca; caso contrário reutiliza a amostra lateral.
+        const sample = (da, db) => blockAt(x + nx + da.x + db.x, y + ny + da.y + db.y, z + nz + da.z + db.z);
+        const faceNeighbor = sample({x:0,y:0,z:0}, {x:0,y:0,z:0});
+        const sideA = sample(a, {x:0,y:0,z:0});
+        const sideB = sample(b, {x:0,y:0,z:0});
         const useDiagonal = isOpaqueBlock(sideA) || isOpaqueBlock(sideB);
-        const corner = useDiagonal ? sample(a, b) : sideA;
-
-        const rawAoBrightness = (
-            getLegacyBlockBrightness(faceNeighbor) +
-            getLegacyBlockBrightness(sideA) +
-            getLegacyBlockBrightness(sideB) +
-            getLegacyBlockBrightness(corner)
-        ) * 0.25;
-
-        // acr.c(): média dos quatro packed-light samples; valores zero
-        // recebem a luz-base antes da média.
+        const corner = useDiagonal ? sample(a,b) : sideA;
+        const rawAoBrightness = (getLegacyBlockBrightness(faceNeighbor) + getLegacyBlockBrightness(sideA) + getLegacyBlockBrightness(sideB) + getLegacyBlockBrightness(corner)) * 0.25;
         const lightChannelsAt = (da, db) => {
-            const sx = x + nx + da.x + db.x;
-            const sy = y + ny + da.y + db.y;
-            const sz = z + nz + da.z + db.z;
-            if (sy < 0) return { sky: 0, block: 0 };
-            if (sy >= HEIGHT) return { sky: 15, block: 0 };
-            let tx = chunk.chunkX;
-            let tz = chunk.chunkZ;
-            let lx = sx;
-            let lz = sz;
-            if (lx < 0) { tx--; lx += SIZE; }
-            else if (lx >= SIZE) { tx++; lx -= SIZE; }
-            if (lz < 0) { tz--; lz += SIZE; }
-            else if (lz >= SIZE) { tz++; lz -= SIZE; }
-            const source = tx === chunk.chunkX && tz === chunk.chunkZ
-                ? chunk
-                : neighborChunks.get(`${tx},${tz}`);
-            const index = lx * 2048 + lz * HEIGHT + sy;
-            return {
-                sky: source?.skyLight?.[index] ?? 0,
-                block: source?.blockLight?.[index] ?? 0
-            };
+            const sx=x+nx+da.x+db.x, sy=y+ny+da.y+db.y, sz=z+nz+da.z+db.z;
+            if (sy < 0) return {sky:0,block:0};
+            if (sy >= HEIGHT) return {sky:15,block:0};
+            let tx=chunk.chunkX, tz=chunk.chunkZ, lx=sx, lz=sz;
+            if(lx<0){tx--;lx+=SIZE;} else if(lx>=SIZE){tx++;lx-=SIZE;}
+            if(lz<0){tz--;lz+=SIZE;} else if(lz>=SIZE){tz++;lz-=SIZE;}
+            const source = tx===chunk.chunkX && tz===chunk.chunkZ ? chunk : neighborChunks.get(`${tx},${tz}`);
+            const index=lx*2048+lz*HEIGHT+sy;
+            return {sky:source?.skyLight?.[index]??0,block:source?.blockLight?.[index]??0};
         };
-        const base = lightChannelsAt({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0 });
-        const sideALight = lightChannelsAt(a, { x: 0, y: 0, z: 0 });
-        const sideBLight = lightChannelsAt(b, { x: 0, y: 0, z: 0 });
-        const cornerLight = useDiagonal
-            ? lightChannelsAt(a, b)
-            : sideALight;
-        // acr.c(): canais sky/block são somados separadamente; amostras
-        // zero recebem o valor-base antes da média de quatro packed lights.
-        const averageChannel = (key) => (
-            base[key] +
-            (sideALight[key] || base[key]) +
-            (sideBLight[key] || base[key]) +
-            (cornerLight[key] || base[key])
-        ) >> 2;
-        const averagedLight = Math.max(
-            averageChannel('sky'),
-            averageChannel('block')
-        );
-        return rawAoBrightness * getLegacyLightBrightness(averagedLight);
+        const base=lightChannelsAt({x:0,y:0,z:0},{x:0,y:0,z:0});
+        const sideALight=lightChannelsAt(a,{x:0,y:0,z:0});
+        const sideBLight=lightChannelsAt(b,{x:0,y:0,z:0});
+        const cornerLight=useDiagonal ? lightChannelsAt(a,b) : sideALight;
+        const averageChannel = key => (base[key] + (sideALight[key] || base[key]) + (sideBLight[key] || base[key]) + (cornerLight[key] || base[key])) >> 2;
+        const skyTotal=averageChannel('sky'), blockTotal=averageChannel('block');
+        return { ao: rawAoBrightness, sky: skyTotal / 15, block: blockTotal / 15 };
     }
 
     for (let x = 0; x < SIZE; x++) {
@@ -326,15 +260,11 @@ export function buildTerrainMesh(spec, chunk, neighborChunks = new Map(), option
                     const b = tinted ? (grassColor & 255) / 255 : 1;
 
                     for (let i = 0; i < template.vertexCount; i++) {
-                        const vertexPosition = {
-                            x: template.positions[i * 3],
-                            y: template.positions[i * 3 + 1],
-                            z: template.positions[i * 3 + 2]
-                        };
-                        const ao = isWater || options.smoothLighting === false
-                            ? 1
-                            : getVertexSmoothBrightness(x, y, z, face, vertexPosition);
+                        const vertexPosition = { x: template.positions[i * 3], y: template.positions[i * 3 + 1], z: template.positions[i * 3 + 2] };
+                        const lighting = isWater ? { ao: 1, sky: 1, block: 0 } : getVertexSmoothBrightness(x, y, z, face, vertexPosition);
+                        const ao = options.smoothLighting === false ? 1 : lighting.ao;
                         bucket.colors.push(r * ao, g * ao, b * ao);
+                        bucket.lights.push(lighting.sky, lighting.block);
                     }
 
                     for (const index of template.indices) {

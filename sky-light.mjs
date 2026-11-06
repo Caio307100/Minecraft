@@ -3,12 +3,12 @@ const HEIGHT = 128;
 const VOLUME = SIZE * SIZE * HEIGHT;
 const CHUNK_WIDTH = SIZE * HEIGHT;
 const WATER = new Set([8, 9]);
-const NON_OPAQUE = new Set([0, 6, 10, 11, 18, 20, 31, 32, 37, 38, 39, 40, 50, 51, 55, 59, 63, 65, 66, 68, 69, 75, 76, 78, 79, 83, 90]);
+const NON_OPAQUE = new Set([0, 6, 18, 20, 31, 32, 37, 38, 39, 40, 50, 51, 55, 59, 63, 65, 66, 68, 69, 75, 76, 78, 83, 90]);
 
 function opacity(id) {
     if (id == null || id === 0) return 0;
-    if (WATER.has(id)) return 3;
-    if (id === 18) return 1;
+    if (WATER.has(id) || id === 79) return 3;
+    if (id === 18 || id === 30) return 1;
     return NON_OPAQUE.has(id) ? 0 : 15;
 }
 
