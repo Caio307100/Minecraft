@@ -1,23 +1,22 @@
 const DB_NAME = 'minecraft-1-browser-assets';
 const STORE_NAME = 'files';
-const REQUIRED = [
-    'terrain.png',
-    'grasscolor.png',
-    'foliagecolor.png',
-    'mc10/particles.png',
-    'mc10/font/default.png',
-    'mc10/font/alternate.png',
-    'mc10/font/font.txt',
-    'mc10/char.png',
-    'mc10/gui/gui.png',
-    'mc10/gui/icons.png',
-    'mc10/gui/inventory.png',
-    'mc10/gui/items.png',
-    'mc10/gui/slider-track.png',
-    'mc10/gui/slider-thumb.png',
-    'mc10/explosion.png',
-    'mc10/footprint.png'
-];
+const MANIFEST_URL = './public/assets-manifest.json';
+let requiredAssetsPromise;
+
+async function getRequiredAssets() {
+    if (!requiredAssetsPromise) {
+        requiredAssetsPromise = fetch(MANIFEST_URL, { cache: 'no-store' })
+            .then(response => {
+                if (!response.ok) throw new Error(`Manifesto de assets indisponível: ${response.status}`);
+                return response.json();
+            })
+            .then(manifest => {
+                if (!Array.isArray(manifest.files) || !manifest.files.length) throw new Error('Manifesto de assets inválido.');
+                return manifest.files;
+            });
+    }
+    return requiredAssetsPromise;
+}
 
 function openDatabase() {
     return new Promise((resolve, reject) => {
@@ -55,14 +54,14 @@ function showImportScreen(message) {
     document.querySelector('#asset-folder').focus();
 }
 
-async function readStoredAssets(db) {
+async function readStoredAssets(db, requiredAssets) {
     const transaction = db.transaction(STORE_NAME, 'readonly');
     const request = transaction.objectStore(STORE_NAME).getAllKeys();
     const keys = await new Promise((resolve, reject) => {
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error);
     });
-    if (!REQUIRED.every(path => keys.includes(path))) return null;
+    if (!requiredAssets.every(path => keys.includes(path))) return null;
 
     const read = db.transaction(STORE_NAME, 'readonly');
     const store = read.objectStore(STORE_NAME);
@@ -74,10 +73,10 @@ async function readStoredAssets(db) {
     return new Map(entries.filter(([, blob]) => blob instanceof Blob));
 }
 
-async function readStaticAssets() {
+async function readStaticAssets(requiredAssets) {
     if (location.protocol === 'file:') return false;
     try {
-        const checks = await Promise.all(REQUIRED.map(async path => {
+        const checks = await Promise.all(requiredAssets.map(async path => {
             const response = await fetch(`./public/assets/${path}`, { method: 'HEAD', cache: 'no-store' });
             return response.ok;
         }));
@@ -149,7 +148,7 @@ function waitForFolder(db) {
                 if (path && !path.includes('../')) selected.set(path, file);
             }
 
-            const missing = REQUIRED.filter(path => !selected.has(path));
+            const missing = requiredAssets.filter(path => !selected.has(path));
             if (missing.length) {
                 status.textContent = `Pasta incompleta. Faltam: ${missing.join(', ')}. Selecione a pasta public/assets do projeto.`;
                 input.value = '';
@@ -177,17 +176,24 @@ export async function initializeWebAssets() {
     // No Electron, os assets locais já foram verificados antes de abrir a janela.
     if (location.protocol === 'file:') return;
 
-    const db = await openDatabase();
-    let assets = await readStoredAssets(db);
-
-    if (!assets && await readStaticAssets()) {
-        db.close();
-        return;
+    // Sempre prioriza os arquivos publicados junto com a versão atual do port.
+    // O IndexedDB pode conter uma importação antiga e não deve sobrescrever assets novos.
+    let requiredAssets;
+    try {
+        requiredAssets = await getRequiredAssets();
+    } catch (error) {
+        showImportScreen(`Não foi possível verificar os assets desta versão: ${error.message}. Atualize o manifesto do projeto e recarregue a página.`);
+        throw error;
     }
 
+    if (await readStaticAssets(requiredAssets)) return;
+
+    const db = await openDatabase();
+    let assets = await readStoredAssets(db, requiredAssets);
+
     if (!assets) {
-        showImportScreen('Para jogar no site, selecione a pasta public/assets que já existe no seu projeto local. Os arquivos ficam salvos apenas neste navegador.');
-        assets = await waitForFolder(db);
+        showImportScreen(`Os assets desta versão estão incompletos ou desatualizados. Selecione novamente a pasta public/assets atualizada (${requiredAssets.length} arquivos esperados).`);
+        assets = await waitForFolder(db, requiredAssets);
     }
 
     const urls = new Map();
