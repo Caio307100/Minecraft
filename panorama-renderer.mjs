@@ -94,7 +94,7 @@ export async function createVanillaPanorama(canvas,asset){
   gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,canvas.width,canvas.height);
   gl.useProgram(blurP);gl.bindBuffer(gl.ARRAY_BUFFER,blurV);gl.enableVertexAttribArray(bl);gl.vertexAttribPointer(bl,2,gl.FLOAT,false,16,0);gl.enableVertexAttribArray(bt);gl.vertexAttribPointer(bt,2,gl.FLOAT,false,16,8);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,blurI);
   const w=canvas.width,h=canvas.height,scale=120/Math.max(w,h),f4=h*scale/256,f5=w*scale/256;
-  const data=new Float32Array([-1,-1,.5+f4,.5+f5, 1,-1,.5+f4,.5-f5, 1,1,.5-f4,.5-f5, -1,1,.5-f4,.5+f5]);
+  const data=new Float32Array([-1,-1,.5-f5,.5-f4, 1,-1,.5+f5,.5-f4, 1,1,.5+f5,.5+f4, -1,1,.5-f5,.5+f4]);
   gl.bindBuffer(gl.ARRAY_BUFFER,blurV);gl.bufferData(gl.ARRAY_BUFFER,data,gl.DYNAMIC_DRAW);
   gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,renderTex);gl.uniform1i(srcLoc,0);gl.uniform1f(alphaLoc,1);gl.uniform1f(shiftLoc,0);gl.disable(gl.BLEND);gl.drawElements(gl.TRIANGLES,6,gl.UNSIGNED_SHORT,0);
  }
