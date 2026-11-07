@@ -1,13 +1,47 @@
-const TYPES = {
-    1: 'stone',
-    2: 'grass',
-    3: 'grass',
-    7: 'stone',
-    12: 'sand',
-    13: 'gravel',
-    24: 'stone',
-    79: 'stone',
-    110: 'grass'
+// yy.java: cada bloco aponta para um wu (som, volume e pitch).
+// Os valores abaixo reproduzem os sons registrados no Minecraft 1.0.
+const SOUND_TYPES = {
+    1: 'stone', 2: 'grass', 3: 'grass', 4: 'stone', 5: 'wood',
+    6: 'grass', 7: 'stone', 12: 'sand', 13: 'gravel',
+    14: 'stone', 15: 'stone', 16: 'stone', 17: 'wood',
+    18: 'grass', 19: 'stone', 20: 'stone', 21: 'stone',
+    22: 'stone', 23: 'stone', 24: 'stone', 25: 'wood',
+    26: 'cloth', 27: 'stone-high', 28: 'stone-high',
+    29: 'stone-high', 30: 'stone', 31: 'grass', 32: 'grass',
+    33: 'stone', 34: 'stone', 35: 'cloth', 37: 'grass',
+    38: 'grass', 39: 'grass', 40: 'grass', 41: 'stone-high',
+    42: 'stone-high', 43: 'stone', 44: 'stone', 45: 'stone',
+    46: 'grass', 47: 'wood', 48: 'stone', 49: 'stone',
+    50: 'wood', 51: 'wood', 52: 'stone-high', 53: 'wood',
+    54: 'wood', 55: 'stone', 56: 'stone', 57: 'stone-high',
+    58: 'wood', 59: 'grass', 60: 'gravel', 61: 'stone',
+    62: 'stone', 63: 'wood', 64: 'wood', 65: 'wood',
+    66: 'stone-high', 67: 'stone', 68: 'wood', 69: 'wood',
+    70: 'stone', 71: 'stone-high', 72: 'wood', 73: 'stone',
+    74: 'stone', 75: 'wood', 76: 'wood', 77: 'stone',
+    78: 'cloth', 79: 'stone', 80: 'cloth', 81: 'cloth',
+    82: 'gravel', 83: 'grass', 84: 'wood', 85: 'wood',
+    86: 'wood', 87: 'stone', 88: 'sand', 89: 'stone',
+    90: 'stone', 91: 'wood', 92: 'cloth', 93: 'wood',
+    94: 'wood', 95: 'wood', 96: 'wood', 97: 'wood',
+    98: 'wood', 99: 'wood', 100: 'wood', 101: 'stone-high',
+    102: 'stone', 103: 'stone', 104: 'wood', 105: 'wood',
+    106: 'grass', 107: 'wood', 108: 'stone', 109: 'stone',
+    110: 'grass', 111: 'grass', 112: 'stone', 113: 'stone',
+    114: 'stone', 115: 'grass', 116: 'stone', 117: 'stone',
+    118: 'stone', 119: 'stone', 120: 'stone', 121: 'stone',
+    122: 'stone'
+};
+
+const SOUND_PROPERTIES = {
+    stone: { name: 'stone', volume: 1, pitch: 1 },
+    'stone-high': { name: 'stone', volume: 1, pitch: 1.5 },
+    wood: { name: 'wood', volume: 1, pitch: 1 },
+    gravel: { name: 'gravel', volume: 1, pitch: 1 },
+    grass: { name: 'grass', volume: 1, pitch: 1 },
+    cloth: { name: 'cloth', volume: 1, pitch: 1 },
+    snow: { name: 'snow', volume: 1, pitch: 1 },
+    sand: { name: 'sand', volume: 1, pitch: 1 }
 };
 
 const musicFiles = ['calm1.ogg', 'calm2.ogg', 'calm3.ogg'];
@@ -174,7 +208,8 @@ export function createLegacyAudio() {
     }
 
     function material(blockId) {
-        return TYPES[blockId] || 'stone';
+        const type = SOUND_TYPES[blockId] || 'stone';
+        return SOUND_PROPERTIES[type] || SOUND_PROPERTIES.stone;
     }
 
     return {
@@ -213,18 +248,30 @@ export function createLegacyAudio() {
             play('random/click.ogg', 0.35, 0.95 + Math.random() * 0.1);
         },
 
-        breakBlock(blockId) {
-            // Minecraft 1.0 usa step.<material> também no som de quebra
-            // (afv, evento 2001): volume (b + 1) / 2 e pitch c * 0.8.
-            const type = material(blockId);
-            play(`step/${type}${variant(type)}.ogg`, 1.0, 0.8);
+        placeBlock(blockId) {
+            // ItemBlock do Minecraft 1.0: (volume + 1) / 2 e pitch * 0.8.
+            const sound = material(blockId);
+            play(`step/${sound.name}${variant(sound.name)}.ogg`,
+                (sound.volume + 1) / 2,
+                sound.pitch * 0.8
+            );
         },
 
-        // dm.c: som de mineração a cada 4 ticks, volume (b + 1) / 8,
-        // pitch c * 0.5. No Minecraft 1.0 b=c=1 para os sons de bloco.
+        breakBlock(blockId) {
+            const sound = material(blockId);
+            play(`step/${sound.name}${variant(sound.name)}.ogg`,
+                (sound.volume + 1) / 2,
+                sound.pitch * 0.8
+            );
+        },
+
+        // dm.c: mineração a cada 4 ticks: (volume + 1) / 8 e pitch * 0.5.
         mineTick(blockId) {
-            const type = material(blockId);
-            play(`step/${type}${variant(type)}.ogg`, 0.25, 0.5);
+            const sound = material(blockId);
+            play(`step/${sound.name}${variant(sound.name)}.ogg`,
+                (sound.volume + 1) / 8,
+                sound.pitch * 0.5
+            );
         },
 
         // Efeito separado para quebra de ferramenta (nq.b).
@@ -233,8 +280,12 @@ export function createLegacyAudio() {
         },
 
         step(blockId) {
-            const type = material(blockId);
-            play(`step/${type}${variant(type)}.ogg`, 0.18, 1, false);
+            const sound = material(blockId);
+            play(`step/${sound.name}${variant(sound.name)}.ogg`,
+                sound.volume * 0.15,
+                sound.pitch,
+                false
+            );
         },
 
         land(speed) {

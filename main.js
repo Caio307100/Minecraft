@@ -1,5 +1,7 @@
 import { createClimateQuery, grassColor, grassColorIndex, grassPixelsFromRgba } from './climate.mjs';
 import { initializeWebAssets } from './web-assets.mjs';
+import { openWorldMenu } from './world-menu.mjs';
+import { createWorldStorage, serializeModifiedChunks, deserializeModifiedChunks } from './world-storage.mjs';
 import { buildTerrainMesh } from './terrain-mesher.mjs';
 import { createWorldLightingTask, initializeChunkLighting, refreshSkyLightColumn } from './sky-light.mjs';
 import { createMinecraft10Lightmap } from './lightmap-mc10.mjs';
@@ -496,7 +498,8 @@ async function main() {
         throw new Error('Mapas de cores de grama/folhagem incompatíveis.');
     }
 
-    const worldSeed = readWorldSeed();
+    const selectedWorld = window.__mc10SelectedWorld;
+    const worldSeed = BigInt(selectedWorld.meta.seed);
     const grassPixels = readGrassPixels(grassColorImage);
     const foliagePixels = readGrassPixels(foliageColorImage);
 
@@ -859,9 +862,9 @@ async function main() {
     gl.frontFace(gl.CCW);
     gl.cullFace(gl.BACK);
 
-    let yaw = Math.PI / 4;
+    let yaw = selectedWorld.save?.player?.yaw ?? Math.PI / 4;
     let bodyYaw = yaw;
-    let pitch = 0.45;
+    let pitch = selectedWorld.save?.player?.pitch ?? 0.45;
     // Acumula a variação da câmera entre frames para a animação da mão.
     let handLookDeltaYaw = 0;
     let handLookDeltaPitch = 0;
@@ -914,21 +917,25 @@ async function main() {
     // será escolhido depois que os chunks da região forem gerados.
     const randomSpawnX = Math.floor(Math.random() * 257) - 128;
     const randomSpawnZ = Math.floor(Math.random() * 257) - 128;
-    const cameraPosition = [randomSpawnX + 0.5, 128, randomSpawnZ + 0.5];
+    const cameraPosition = selectedWorld.save?.player?.position?.slice() ?? [randomSpawnX + 0.5, 128, randomSpawnZ + 0.5];
 
     const inventory = new InventoryPlayerMC10();
+    const savedInventory = selectedWorld.save?.player?.inventory;
+    if (Array.isArray(savedInventory)) savedInventory.forEach((stack, slot) => { if (stack && slot < 40) inventory.setStack(slot, new ItemStackMC10(stack.id, stack.count, stack.damage, stack.maxStackSize)); });
+    if (Number.isInteger(selectedWorld.save?.player?.selectedSlot)) inventory.selectHotbar(selectedWorld.save.player.selectedSlot);
     let foodStats = new FoodStatsMC10();
+    if (selectedWorld.save?.player?.foodStats) Object.assign(foodStats, selectedWorld.save.player.foodStats);
     const craftingSlots = new Array(4).fill(null);
     let carriedStack = null;
     let inventoryPointer = { x: 88, y: 83 };
-    let difficulty = 2; // 0 peaceful, 1 easy, 2 normal, 3 hard.
+    let difficulty = selectedWorld.save?.player?.difficulty ?? 2; // 0 peaceful, 1 easy, 2 normal, 3 hard.
     let mouseSensitivity = 0.5;
     let musicVolume = 1;
     let soundVolume = 1;
     let invertMouse = false;
     let fieldOfView = 70;
-    let health = 20;
-    let air = 300;
+    let health = selectedWorld.save?.player?.health ?? 20;
+    let air = selectedWorld.save?.player?.air ?? 300;
     let hurtTicks = 0;
     let previousDamage = 0;
     let dead = false;
@@ -936,9 +943,9 @@ async function main() {
     let survivalTickAccumulator = 0;
     let survivalWorldTicks = 0;
     let fallDistance = 0;
-    let itemEntities = [];
-    let spawnPoint = null;
-    let survivalSpawnInitialized = false;
+    let itemEntities = (selectedWorld.save?.player?.drops ?? []).map(item => new DroppedItemMC10(new ItemStackMC10(item.stack.id, item.stack.count, item.stack.damage, item.stack.maxStackSize), [item.x,item.y,item.z], [item.vx,item.vy,item.vz], item.pickupDelay));
+    let spawnPoint = selectedWorld.save?.player?.spawnPoint?.slice() ?? (selectedWorld.save?.player?.position ? [...cameraPosition] : null);
+    let survivalSpawnInitialized = !!selectedWorld.save?.player?.position;
     let spawnSearchAttempts = 0;
     let spawnSearchChunkCount = -1;
 
@@ -976,6 +983,8 @@ async function main() {
     let renderedHeldItem = inventory.getCurrentItem() ? { ...inventory.getCurrentItem() } : null;
     let nextMiningSwingAt = 0;
     let leftMouseDown = false;
+    let rightMouseDown = false;
+    let nextBlockPlacementAt = 0;
     let miningTarget = null;
 
     // O jogador do Minecraft 1.0 completa o swing em 6 ticks (300 ms a 20 TPS).
@@ -1145,7 +1154,7 @@ async function main() {
     let waterSortCenterZ = NaN;
     // Guarda alterações fora dos chunks carregados para não perdê-las no unload.
     // Cada entrada contém apenas blocos modificados pelo jogador/simulações.
-    const modifiedChunkBlocks = new Map();
+    const modifiedChunkBlocks = deserializeModifiedChunks(selectedWorld.save?.chunks);
     const pendingChunkGeneration = [];
     let pendingChunkGenerationIndex = 0;
     const pendingChunkGenerationKeys = new Set();
@@ -1656,6 +1665,43 @@ async function main() {
             : inventory.getStack(entry.slot);
     }
 
+    // Receitas do inventário 2x2: um tronco produz quatro tábuas.
+    function getCraftingResult() {
+        const occupied = craftingSlots
+            .map((stack, index) => stack ? { stack, index } : null)
+            .filter(Boolean);
+        if (occupied.length !== 1) return null;
+
+        const { stack, index } = occupied[0];
+        if (stack.id !== 17 || stack.count < 1) return null;
+        return {
+            stack: new ItemStackMC10(5, 4, stack.damage),
+            inputIndex: index
+        };
+    }
+
+    function takeCraftingResult() {
+        const result = getCraftingResult();
+        if (!result || !inventoryOpen) return;
+
+        const output = result.stack;
+        if (!carriedStack) {
+            carriedStack = output;
+        } else if (carriedStack.isStackableWith(output) &&
+            carriedStack.count + output.count <= carriedStack.maxStackSize) {
+            carriedStack.count += output.count;
+        } else {
+            return;
+        }
+
+        const input = craftingSlots[result.inputIndex];
+        input.count--;
+        if (input.count <= 0) craftingSlots[result.inputIndex] = null;
+
+        updateHotbar();
+        renderInventoryScreen();
+    }
+
     function setInventorySlotStack(entry, stack) {
         if (entry.type === 'crafting') {
             craftingSlots[entry.slot] = stack ? stack.copy() : null;
@@ -1754,6 +1800,20 @@ async function main() {
             inventoryCursorCount.style.display = 'none';
         }
 
+        const craftingResult = getCraftingResult();
+        const outputButton = inventorySlotLayer.querySelector('.output-slot');
+        if (craftingResult) {
+            icons.push({
+                id: craftingResult.stack.id,
+                metadata: craftingResult.stack.damage,
+                x: 144,
+                y: 36
+            });
+            if (outputButton) outputButton.disabled = false;
+        } else if (outputButton) {
+            outputButton.disabled = true;
+        }
+
         drawInventoryIcons?.renderItems(icons);
 
         // mg.a(...) no JAR: mostra dk.q() somente ao passar sobre um slot
@@ -1809,6 +1869,11 @@ async function main() {
         output.style.top = '36px';
         output.disabled = true;
         output.setAttribute('aria-label', 'Resultado de crafting');
+        output.addEventListener('mousedown', event => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (event.button === 0) takeCraftingResult();
+        });
         inventorySlotLayer.append(output);
     }
 
@@ -1899,9 +1964,30 @@ async function main() {
     });
 
     backToGameButton.addEventListener('click', closeGameMenu);
-    saveQuitTitleButton.addEventListener('click', () => {
-        // Não existe tela de título neste port; sair leva a página para fora do jogo.
-        window.location.href = 'about:blank';
+    saveQuitTitleButton.addEventListener('click', async () => {
+        saveQuitTitleButton.disabled = true;
+        try {
+            const storage = createWorldStorage();
+            const stacks = inventory.main.concat(inventory.armor).map(stack => stack ? {
+                id: stack.id, count: stack.count, damage: stack.damage, maxStackSize: stack.maxStackSize
+            } : null);
+            const drops = itemEntities.filter(item => !item.dead && !item.pickupAnimation).map(item => ({
+                stack: { id: item.stack.id, count: item.stack.count, damage: item.stack.damage, maxStackSize: item.stack.maxStackSize },
+                x:item.x, y:item.y, z:item.z, vx:item.vx, vy:item.vy, vz:item.vz, pickupDelay:item.pickupDelay
+            }));
+            await storage.saveWorld(selectedWorld.meta.id, {
+                chunks: serializeModifiedChunks(modifiedChunkBlocks),
+                player: { position: [...cameraPosition], yaw, pitch, inventory: stacks, selectedSlot: inventory.currentItem,
+                    foodStats: { foodLevel: foodStats.foodLevel, saturationLevel: foodStats.saturationLevel, exhaustionLevel: foodStats.exhaustionLevel, foodTickTimer: foodStats.foodTickTimer, previousFoodLevel: foodStats.previousFoodLevel },
+                    health, air, difficulty, drops, spawnPoint: spawnPoint ? [...spawnPoint] : null }
+            });
+            window.__mc10SelectedWorld = await storage.loadWorld(selectedWorld.meta.id);
+            window.location.reload();
+        } catch (error) {
+            console.error('Falha ao salvar o mundo:', error);
+            saveQuitTitleButton.disabled = false;
+            alert('Não foi possível salvar o mundo: ' + error.message);
+        }
     });
 
     const optionNames = ['Music', 'Sound', 'Invert Mouse', 'Sensitivity', 'FOV', 'Difficulty'];
@@ -2853,6 +2939,8 @@ function setMeterSprites(element, baseU, fillU, v) {
     const droppedItemTextures = {
         3: [2, 2, 2, 2, 2, 2],
         4: [16, 16, 16, 16, 16, 16],
+        5: [4, 4, 4, 4, 4, 4],
+        5: [4, 4, 4, 4, 4, 4],
         12: [18, 18, 18, 18, 18, 18],
         13: [19, 19, 19, 19, 19, 19],
         17: [21, 21, 20, 20, 20, 20],
@@ -2894,6 +2982,7 @@ function setMeterSprites(element, baseU, fillU, v) {
         2: [2, 0, 3, 3, 3, 3],
         3: [2, 2, 2, 2, 2, 2],
         4: [16, 16, 16, 16, 16, 16],
+        5: [4, 4, 4, 4, 4, 4],
         7: [17, 17, 17, 17, 17, 17],
         12: [18, 18, 18, 18, 18, 18],
         13: [19, 19, 19, 19, 19, 19],
@@ -3215,16 +3304,27 @@ function setMeterSprites(element, baseU, fillU, v) {
             // Minecraft 1.0: após colocar o bloco com sucesso, o player
             // executa o mesmo swing de braço usado no ataque (vi.m_()).
             startArmSwing(now);
+            legacyAudio.placeBlock(selectedBlockId);
             inventory.consumeSelected(1);
             updateHotbar();
             console.log(`Bloco colocado: ${selectedBlockId}`);
         }
     });
 
+    window.addEventListener('mousedown', event => {
+        if (event.button === 2) {
+            rightMouseDown = true;
+            nextBlockPlacementAt = performance.now() + MINE_TICK_MS * 4;
+        }
+    });
+
     window.addEventListener('mouseup', event => {
-        if (event.button !== 0) return;
-        leftMouseDown = false;
-        miningTarget = null;
+        if (event.button === 0) {
+            leftMouseDown = false;
+            miningTarget = null;
+        } else if (event.button === 2) {
+            rightMouseDown = false;
+        }
     });
 
     // O jogo não deve acumular tempo de mineração enquanto a aba está oculta.
@@ -3232,6 +3332,7 @@ function setMeterSprites(element, baseU, fillU, v) {
         if (miningTarget) {
             miningTarget.nextTickAt = performance.now() + MINE_TICK_MS;
         }
+        if (rightMouseDown) nextBlockPlacementAt = performance.now() + MINE_TICK_MS * 4;
     });
 
     function bodyInWater() {
@@ -3387,6 +3488,16 @@ function setMeterSprites(element, baseU, fillU, v) {
             updateChunks();
             requestAnimationFrame(render);
             return;
+        }
+
+        if (dead) rightMouseDown = false;
+        if (!dead && rightMouseDown && now >= nextBlockPlacementAt) {
+            canvas.dispatchEvent(new MouseEvent('mousedown', {
+                button: 2,
+                bubbles: true,
+                cancelable: true
+            }));
+            nextBlockPlacementAt = now + MINE_TICK_MS * 4;
         }
 
         let miningStage = -1;
@@ -4526,8 +4637,11 @@ function setMeterSprites(element, baseU, fillU, v) {
     render();
 }
 
-main().catch(error => {
+openWorldMenu().then(selected => {
+    window.__mc10SelectedWorld = selected;
+    main().catch(error => {
     console.error(error);
     document.body.innerHTML =
         `<pre style="color:white;padding:20px">${error.stack}</pre>`;
-});
+    });
+}).catch(error => console.error('Menu de mundos:', error));

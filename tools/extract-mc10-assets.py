@@ -34,6 +34,16 @@ ASSETS = {
     "misc/shadow.png": "public/assets/mc10/shadow.png",
     "misc/grasscolor.png": "public/assets/grasscolor.png",
     "misc/foliagecolor.png": "public/assets/foliagecolor.png",
+    # Tela de título / seleção de mundo.
+    "gui/background.png": "public/assets/mc10/gui/background.png",
+    "title/mclogo.png": "public/assets/mc10/title/mclogo.png",
+    "title/splashes.txt": "public/assets/mc10/title/splashes.txt",
+    "title/bg/panorama0.png": "public/assets/mc10/title/bg/panorama0.png",
+    "title/bg/panorama1.png": "public/assets/mc10/title/bg/panorama1.png",
+    "title/bg/panorama2.png": "public/assets/mc10/title/bg/panorama2.png",
+    "title/bg/panorama3.png": "public/assets/mc10/title/bg/panorama3.png",
+    "title/bg/panorama4.png": "public/assets/mc10/title/bg/panorama4.png",
+    "title/bg/panorama5.png": "public/assets/mc10/title/bg/panorama5.png",
 }
 
 def valid_png(data: bytes) -> bool:

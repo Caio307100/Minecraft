@@ -87,6 +87,7 @@ const MC10_ITEM_NAMES = Object.freeze({
     2: 'Grass Block',
     3: 'Dirt',
     4: 'Cobblestone',
+    5: 'Wooden Planks',
     7: 'Bedrock',
     12: 'Sand',
     13: 'Gravel',

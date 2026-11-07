@@ -421,6 +421,8 @@ export function getMinecraft10BlockDrop(blockId, random = Math.random, metadata 
         case 2: // jb.a(): dirt
         case 3: // agd inherits the default self-drop
             return new ItemStackMC10(3, 1);
+        case 5: // wooden planks drop themselves, preserving wood metadata
+            return new ItemStackMC10(5, 1, metadata & 3);
         case 12: // sand
             return new ItemStackMC10(12, 1);
         case 17: // log: preserves the wood variant metadata
