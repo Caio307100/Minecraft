@@ -129,7 +129,7 @@ function installAssetResolvers(assetUrls) {
     }
 }
 
-function waitForFolder(db) {
+function waitForFolder(db, requiredAssets) {
     return new Promise((resolve, reject) => {
         const input = document.querySelector('#asset-folder');
         const status = document.querySelector('#asset-loader-status');
