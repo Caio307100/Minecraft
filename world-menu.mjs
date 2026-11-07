@@ -5,7 +5,7 @@ import { loadMinecraftFont, setMinecraftText } from './minecraft-font.mjs';
 const storage = createWorldStorage();
 const asset = path => `./public/assets/mc10/${path}`;
 const labels = {
-  singleplayer: 'Singleplayer', multiplayer: 'Multiplayer', texturePacks: 'Mods',
+  singleplayer: 'Singleplayer', multiplayer: 'Multiplayer', texturePacks: 'Texture Packs',
   options: 'Options...', quit: 'Quit Game', selectTitle: 'Select World',
   play: 'Play Selected World', create: 'Create New World', rename: 'Rename', delete: 'Delete', cancel: 'Cancel',
   renameTitle: 'Rename World', renameButton: 'Rename', newWorld: 'New World', worldName: 'World Name',
@@ -34,9 +34,9 @@ const styleText = `
 
 #mc10-panorama:after{content:"";position:absolute;inset:0;background:rgba(0,0,0,.10);pointer-events:none}
 #mc10-menu-content{position:absolute;inset:0;text-shadow:1px 1px 0 #3f3f3f;font-size:8px}
-#mc10-logo{position:absolute;top:30px;left:50%;width:310px;height:44px;transform:translateX(-50%);image-rendering:pixelated}
+#mc10-logo{position:absolute;top:30px;left:50%;width:274px;height:44px;transform:translateX(-50%);image-rendering:pixelated}
 .mc10-splash{position:absolute;top:62px;left:calc(50% + 90px);color:#ffff00;font-size:10px;white-space:nowrap;transform:rotate(-20deg);animation:mc10-splash 1s ease-in-out infinite alternate}
-@keyframes mc10-splash{to{scale:1.08}}
+@keyframes mc10-splash{from{scale:var(--splash-min)}to{scale:var(--splash-max)}}
 .mc10-footer{position:absolute;bottom:5px;font-size:8px;color:#fff}.mc10-footer.left{left:2px}.mc10-footer.right{right:2px}
 .mc10-screen-title{position:absolute;top:20px;left:0;width:100%;text-align:center;font-size:16px;color:#fff}
 .mc10-button{position:absolute;height:20px;border:0;border-radius:0;padding:0;background:transparent;display:flex;align-items:center;justify-content:center;color:#e0e0e0;font:8px monospace;text-shadow:1px 1px #3f3f3f;cursor:pointer;image-rendering:pixelated}
@@ -78,10 +78,12 @@ export async function openWorldMenu() {
   const root = el('div', { id: 'mc10-menu' });
   let guiScale = 1, guiWidth = 0, guiHeight = 0;
   const updateGuiSize = () => {
+    // ef.java do Minecraft 1.0: guiScale 0 (Auto), mínimo 320x240,
+    // sem limite artificial de escala e dimensões arredondadas para cima.
     guiScale = 1;
-    while (guiScale < 3 && innerWidth / (guiScale + 1) >= 320 && innerHeight / (guiScale + 1) >= 240) guiScale++;
-    guiWidth = Math.floor(innerWidth / guiScale);
-    guiHeight = Math.floor(innerHeight / guiScale);
+    while (innerWidth / (guiScale + 1) >= 320 && innerHeight / (guiScale + 1) >= 240) guiScale++;
+    guiWidth = Math.ceil(innerWidth / guiScale);
+    guiHeight = Math.ceil(innerHeight / guiScale);
     content.style.width = `${guiWidth}px`; content.style.height = `${guiHeight}px`;
     content.style.transform = `scale(${guiScale})`;
   };
@@ -139,21 +141,27 @@ export async function openWorldMenu() {
     left.className = 'mc10-footer left'; right.className = 'mc10-footer right';
   };
   const guiAtlas = new Image(); guiAtlas.src = asset('gui/gui.png'); await guiAtlas.decode();
-  const logo = el('canvas', { id: 'mc10-logo', width: 310, height: 44 });
+  const logo = el('canvas', { id: 'mc10-logo', width: 274, height: 44 });
   const logoImage = new Image();
   logoImage.src = asset('title/mclogo.png');
   await logoImage.decode();
   const logoCtx = logo.getContext('2d');
   logoCtx.imageSmoothingEnabled = false;
-  // GuiMainMenu.a(): as duas metades do logo são desenhadas lado a lado.
-  logoCtx.drawImage(logoImage, 0, 0, 155, 44, 0, 0, 155, 44);
-  logoCtx.drawImage(logoImage, 0, 45, 155, 44, 155, 0, 155, 44);
+  // GuiMainMenu.a() do Minecraft 1.0: recortes originais do logo (274x44).
+  logoCtx.drawImage(logoImage, 0, 0, 99, 44, 0, 0, 99, 44);
+  logoCtx.drawImage(logoImage, 129, 0, 27, 44, 99, 0, 27, 44);
+  logoCtx.drawImage(logoImage, 126, 0, 3, 44, 126, 0, 3, 44);
+  logoCtx.drawImage(logoImage, 99, 0, 26, 44, 129, 0, 26, 44);
+  logoCtx.drawImage(logoImage, 0, 45, 155, 44, 155, 0, 119, 44);
   content.append(logo);
   const splashLines = (await (await fetch(asset('title/splashes.txt'))).text()).split(/\r?\n/).filter(Boolean);
   const splash = splashLines[Math.floor(Math.random() * splashLines.length)] || 'missingno';
-  let splashNode = text(content, splash, guiWidth / 2 + 90, 64, '#ffff00');
+  let splashNode = text(content, splash, guiWidth / 2 + 90, 70, '#ffff00');
   splashNode.style.transformOrigin = 'left center';
   splashNode.style.transform = 'rotate(-20deg)';
+  const splashScale = 100 / (font.measureText(splash) + 32);
+  splashNode.style.setProperty('--splash-min', String(1.7 * splashScale));
+  splashNode.style.setProperty('--splash-max', String(1.8 * splashScale));
   splashNode.style.animation = 'mc10-splash 1s ease-in-out infinite alternate';
 
   let resolveMenu;
@@ -166,9 +174,12 @@ export async function openWorldMenu() {
   const mainScreen = () => {
     clearContent();
     content.append(logo);
-    splashNode = text(content, splash, guiWidth / 2 + 90, 64, '#ffff00');
+    splashNode = text(content, splash, guiWidth / 2 + 90, 70, '#ffff00');
     splashNode.style.transformOrigin = 'left center';
     splashNode.style.transform = 'rotate(-20deg)';
+    const splashScale = 100 / (font.measureText(splash) + 32);
+    splashNode.style.setProperty('--splash-min', String(1.7 * splashScale));
+    splashNode.style.setProperty('--splash-max', String(1.8 * splashScale));
     splashNode.style.animation = 'mc10-splash 1s ease-in-out infinite alternate';
     footer();
     const y = Math.floor(guiHeight / 4) + 48;
