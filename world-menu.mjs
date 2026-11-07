@@ -1,4 +1,5 @@
 import { createWorldStorage } from './world-storage.mjs';
+import { createVanillaPanorama } from './panorama-renderer.mjs';
 import { loadMinecraftFont, setMinecraftText } from './minecraft-font.mjs';
 
 const storage = createWorldStorage();
@@ -88,22 +89,8 @@ export async function openWorldMenu() {
   const panoramaCanvas = el('canvas', { width: 256, height: 256 });
   panoramaCanvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;image-rendering:auto';
   panorama.append(panoramaCanvas);
-  const panoramaGL = panoramaCanvas.getContext('webgl', { alpha: false, antialias: false, depth: false, premultipliedAlpha: false });
-  let panoramaFrame = 0;
-  if (panoramaGL) {
-    const gl = panoramaGL;
-    const vertex = 'attribute vec2 p; varying vec2 uv; void main(){uv=p*.5+.5;gl_Position=vec4(p,0.,1.);}';
-    const fragment = `precision highp float; varying vec2 uv; uniform sampler2D t0; uniform sampler2D t1; uniform sampler2D t2; uniform sampler2D t3; uniform sampler2D t4; uniform sampler2D t5; uniform float yaw; uniform float pitch; uniform vec2 jitter; uniform float alpha; const float PI=3.14159265359; vec3 rotX(vec3 v,float a){return vec3(v.x,v.y*cos(a)-v.z*sin(a),v.y*sin(a)+v.z*cos(a));} vec3 rotY(vec3 v,float a){return vec3(v.x*cos(a)+v.z*sin(a),v.y,-v.x*sin(a)+v.z*cos(a));} void main(){vec2 q=(uv-.5)*2.; q+=jitter; float z=1.0/tan(radians(60.0)); vec3 d=normalize(vec3(q.x,q.y,z)); d=rotX(d,radians(pitch)); d=rotY(d,radians(yaw)); vec2 st; vec4 c; vec3 a=abs(d); if(a.z>=a.x&&a.z>=a.y){if(d.z>0.){st=vec2(d.x,-d.y)/a.z*.5+.5;c=texture2D(t0,st);}else{st=vec2(-d.x,-d.y)/a.z*.5+.5;c=texture2D(t2,st);}}else if(a.x>=a.y){if(d.x>0.){st=vec2(-d.z,-d.y)/a.x*.5+.5;c=texture2D(t1,st);}else{st=vec2(d.z,-d.y)/a.x*.5+.5;c=texture2D(t3,st);}}else{if(d.y>0.){st=vec2(d.x,d.z)/a.y*.5+.5;c=texture2D(t4,st);}else{st=vec2(d.x,-d.z)/a.y*.5+.5;c=texture2D(t5,st);}} gl_FragColor=vec4(c.rgb,alpha);}`;
-    const compile=(type,src)=>{const sh=gl.createShader(type);gl.shaderSource(sh,src);gl.compileShader(sh);if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(sh));return sh;};
-    const program=gl.createProgram();gl.attachShader(program,compile(gl.VERTEX_SHADER,vertex));gl.attachShader(program,compile(gl.FRAGMENT_SHADER,fragment));gl.linkProgram(program);gl.useProgram(program);
-    const buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);const loc=gl.getAttribLocation(program,'p');gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
-    const images=await Promise.all(Array.from({length:6},(_,i)=>{const im=new Image();im.src=asset(`title/bg/panorama${i}.png`);return im.decode().then(()=>im);}));
-    images.forEach((im,i)=>{const tex=gl.createTexture();gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,tex);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,im);gl.uniform1i(gl.getUniformLocation(program,`t${i}`),i);});
-    const yawLoc=gl.getUniformLocation(program,'yaw'),pitchLoc=gl.getUniformLocation(program,'pitch'),jitterLoc=gl.getUniformLocation(program,'jitter'),alphaLoc=gl.getUniformLocation(program,'alpha');
-    gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
-    const renderPanorama=()=>{const t=performance.now()/50;gl.viewport(0,0,256,256);gl.clearColor(0,0,0,1);gl.clear(gl.COLOR_BUFFER_BIT);gl.uniform1f(yawLoc,-t*.1);gl.uniform1f(pitchLoc,Math.sin(t/8)*25+20);for(let i=0;i<64;i++){gl.uniform2f(jitterLoc,((i%8)/8-.5)/32, (Math.floor(i/8)/8-.5)/32);gl.uniform1f(alphaLoc,1/(i+1));gl.drawArrays(gl.TRIANGLE_STRIP,0,4);}panoramaFrame=requestAnimationFrame(renderPanorama);};
-    renderPanorama();
-  }
+  let stopPanorama = () => {};
+  stopPanorama = await createVanillaPanorama(panoramaCanvas, asset);
   const content = el('div', { id: 'mc10-menu-content' });
   content.style.transformOrigin = 'top left';
   updateGuiSize();
@@ -174,7 +161,7 @@ export async function openWorldMenu() {
   const clearContent = () => {
     for (const node of [...content.children]) if (!node.classList.contains('mc10-footer')) node.remove();
   };
-  const finish = value => { root.remove(); resolveMenu(value); };
+  const finish = value => { stopPanorama(); root.remove(); resolveMenu(value); };
   const load = async id => finish(await storage.loadWorld(id));
   const mainScreen = () => {
     clearContent();
