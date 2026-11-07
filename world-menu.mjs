@@ -118,14 +118,16 @@ export async function openWorldMenu() {
     sprite.style.imageRendering = 'pixelated'; sprite.style.pointerEvents = 'none';
     const spriteCtx = sprite.getContext('2d');
     const label = el('span');
-    setMinecraftText(label, value, font, { scale: 1, shadow: true });
     node.append(sprite, label);
     const drawSprite = () => {
-      const state = node.disabled ? 0 : node.matches(':hover') ? 2 : 1;
+      const hovered = node.matches(':hover');
+      const state = node.disabled ? 0 : hovered ? 2 : 1;
       const sy = 46 + state * 20, half = width / 2;
       spriteCtx.clearRect(0, 0, width, 20);
       spriteCtx.drawImage(guiAtlas, 0, sy, half, 20, 0, 0, half, 20);
       spriteCtx.drawImage(guiAtlas, 200 - half, sy, half, 20, half, 0, width - half, 20);
+      // ct.java do Minecraft 1.0: texto amarelo-claro ao passar o mouse.
+      setMinecraftText(label, value, font, { scale: 1, shadow: true, color: node.disabled ? '#a0a0a0' : hovered ? '#ffffa0' : '#e0e0e0' });
     };
     node.addEventListener('mouseenter', drawSprite); node.addEventListener('mouseleave', drawSprite);
     node.addEventListener('click', onClick);
