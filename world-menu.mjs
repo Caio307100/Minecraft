@@ -45,11 +45,11 @@ const styleText = `
 .mc10-button.mc10-wide{width:200px}
 .mc10-button.mc10-small{width:98px}
 .mc10-world-list{position:absolute;top:32px;left:0;width:100%;height:calc(100% - 64px);overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
-.mc10-world-entry{position:relative;box-sizing:border-box;width:220px;height:32px;margin:0 auto 4px;padding:0 2px;border:0;cursor:pointer;color:#fff;text-align:left;background:transparent}
-.mc10-world-entry.selected:before{content:'';position:absolute;inset:-2px -2px 0;border:1px solid #fff;background:rgba(255,255,255,.18);pointer-events:none}
+.mc10-world-entry{position:relative;display:block;box-sizing:border-box;width:220px;height:36px;margin:0 auto;padding:0 2px;border:0;cursor:pointer;color:#fff;text-align:left;background:transparent}
+.mc10-world-entry.selected:before{content:'';position:absolute;inset:0;border:1px solid #fff;background:rgba(255,255,255,.18);pointer-events:none}
 
-.mc10-world-entry .name{position:relative;z-index:1;font-size:8px;line-height:11px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.mc10-world-entry .detail,.mc10-world-entry .mode{position:relative;z-index:1;font-size:8px;color:#808080;line-height:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mc10-world-entry .mode.hardcore{color:#aa0000}
+.mc10-world-entry .name{position:relative;z-index:1;font-size:8px;line-height:12px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mc10-world-entry .detail{position:relative;z-index:1;font-size:8px;color:#808080;line-height:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 .mc10-form{position:absolute;left:50%;top:0;transform:translateX(-50%);width:min(310px,94vw);height:100%;font-size:8px}
 .mc10-label{position:absolute;left:0;color:#a0a0a0;height:12px;white-space:nowrap}
@@ -221,14 +221,13 @@ export async function openWorldMenu() {
         const row = el('div', { className: 'mc10-world-entry' + (selectedId === world.id ? ' selected' : ''), tabIndex: 0 });
         const name = el('div', { className: 'name' });
         const detail = el('div', { className: 'detail' });
-        const mode = el('div', { className: 'mode' });
         setMinecraftText(name, world.name || (labels.worldName + ' ' + (index + 1)), font);
-        const date = new Date(world.lastPlayed || world.createdAt || Date.now()).toLocaleString();
-        setMinecraftText(detail, world.id + ' (' + date + ')', font);
+        const playedAt = world.lastPlayed || world.createdAt;
+        const dateText = playedAt ? new Date(playedAt).toLocaleString() : '';
         const modeText = world.hardcore ? 'Hardcore' : (world.gameMode === 'creative' ? 'Creative' : 'Survival');
-        setMinecraftText(mode, modeText, font);
-        if (world.hardcore) mode.classList.add('hardcore');
-        row.append(name, detail, mode);
+        const details = [world.id, dateText && `(${dateText})`, `(${modeText})`].filter(Boolean).join(' ');
+        setMinecraftText(detail, details, font);
+        row.append(name, detail);
         row.addEventListener('click', () => { selectedId = world.id; refresh(); });
         row.addEventListener('dblclick', () => load(world.id));
         row.addEventListener('keydown', event => { if (event.key === 'Enter') load(world.id); });
