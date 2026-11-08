@@ -157,16 +157,19 @@ function waitForFolder(db, requiredAssets) {
             }
 
             try {
-                const transaction = db.transaction(STORE_NAME, 'readwrite');
-                const store = transaction.objectStore(STORE_NAME);
-                store.clear();
-                for (const [path, file] of selected) store.put(file, path);
-                await transactionDone(transaction);
-                status.textContent = 'Assets importados. Iniciando o jogo...';
+                if (db) {
+                    const transaction = db.transaction(STORE_NAME, 'readwrite');
+                    const store = transaction.objectStore(STORE_NAME);
+                    store.clear();
+                    for (const [path, file] of selected) store.put(file, path);
+                    await transactionDone(transaction);
+                }
+                status.textContent = 'Assets carregados. Iniciando o jogo...';
                 resolve(new Map([...selected].map(([path, file]) => [path, file])));
             } catch (error) {
-                status.textContent = `Não foi possível salvar os assets: ${error.message}`;
-                reject(error);
+                console.warn('Não foi possível persistir os assets no IndexedDB; usando os arquivos nesta sessão.', error);
+                status.textContent = 'Assets carregados apenas nesta sessão. Iniciando o jogo...';
+                resolve(new Map([...selected].map(([path, file]) => [path, file])));
             }
         });
     });
@@ -177,28 +180,28 @@ export async function initializeWebAssets() {
     // No Electron, os assets locais já foram verificados antes de abrir a janela.
     if (location.protocol === 'file:') return;
 
-    // Sempre prioriza os arquivos publicados junto com a versão atual do port.
-    // O IndexedDB pode conter uma importação antiga e não deve sobrescrever assets novos.
     let requiredAssets;
     try {
         requiredAssets = await getRequiredAssets();
     } catch (error) {
-        showImportScreen(`Não foi possível verificar os assets desta versão: ${error.message}. Atualize o manifesto do projeto e recarregue a página.`);
+        showImportScreen(`Não foi possível verificar os assets desta versão: ${error.message}. Selecione a pasta public/assets atualizada.`);
         throw error;
     }
 
     const missingStaticAssets = await readStaticAssets(requiredAssets);
     if (!missingStaticAssets.length) return;
 
-    const db = await openDatabase();
-    let assets = await readStoredAssets(db, requiredAssets);
-
-    // Os arquivos locais/publicados têm prioridade. Se faltarem, uma cópia
-    // completa no IndexedDB ainda é suficiente: não pedir reimportação.
-    if (!assets) {
-        showImportScreen(`Os assets desta versão estão incompletos ou desatualizados. Faltam ${missingStaticAssets.length} arquivos publicados. Selecione novamente a pasta public/assets atualizada (${requiredAssets.length} arquivos esperados).`);
-        assets = await waitForFolder(db, requiredAssets);
+    // Se a hospedagem não contém todos os arquivos, sempre avisa e pede a pasta
+    // local. Não usa silenciosamente um cache antigo do IndexedDB.
+    let db = null;
+    try {
+        db = await openDatabase();
+    } catch (error) {
+        console.warn('IndexedDB indisponível; os assets serão usados apenas nesta sessão.', error);
     }
+
+    showImportScreen(`Não foi possível encontrar ${missingStaticAssets.length} de ${requiredAssets.length} assets publicados. Selecione a pasta public/assets do projeto para carregar os arquivos que faltam.`);
+    const assets = await waitForFolder(db, requiredAssets);
 
     const urls = new Map();
     for (const [path, blob] of assets) {
@@ -206,5 +209,5 @@ export async function initializeWebAssets() {
     }
     installAssetResolvers(urls);
     document.querySelector('#asset-loader').hidden = true;
-    db.close();
+    db?.close();
 }
