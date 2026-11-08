@@ -76,7 +76,7 @@ export async function openWorldMenu() {
   }
 
   // xe.java do Minecraft 1.0 toca random.click em todo GuiButton ativado.
-  const buttonClickSound = new Audio(asset('sounds/random/click.ogg'));
+  const buttonClickSound = new Audio(window.mcAssetUrl?.(asset('sounds/random/click.ogg')) ?? asset('sounds/random/click.ogg'));
   buttonClickSound.preload = 'auto';
   const playButtonSound = () => {
     const sound = buttonClickSound.cloneNode();
