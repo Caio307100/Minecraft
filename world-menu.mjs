@@ -211,7 +211,8 @@ export async function openWorldMenu() {
     clearContent();
     panorama.style.display = 'none';
     root.style.backgroundColor = '#202020';
-    root.style.backgroundImage = 'url("' + asset('gui/background.png') + '")';
+    const backgroundUrl = window.mcAssetUrl?.(asset('gui/background.png')) ?? asset('gui/background.png');
+    root.style.backgroundImage = `url("${backgroundUrl}")`;
     root.style.backgroundRepeat = 'repeat';
     root.style.backgroundPosition = 'top left';
     root.style.backgroundSize = '16px 16px';
