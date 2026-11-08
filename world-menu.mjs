@@ -179,7 +179,7 @@ export async function openWorldMenu() {
   let resolveMenu;
   const menuResult = new Promise(resolve => { resolveMenu = resolve; });
   const clearContent = () => {
-    for (const node of [...content.children]) if (!node.classList.contains('mc10-footer')) node.remove();
+    content.replaceChildren();
   };
   const finish = value => { stopPanorama(); root.remove(); resolveMenu(value); };
   const load = async id => finish(await storage.loadWorld(id));
@@ -210,7 +210,11 @@ export async function openWorldMenu() {
   const selectScreen = async () => {
     clearContent();
     panorama.style.display = 'none';
-    root.style.background = '#202020 url("' + asset('gui/background.png') + '") repeat';
+    root.style.backgroundColor = '#202020';
+    root.style.backgroundImage = 'url("' + asset('gui/background.png') + '")';
+    root.style.backgroundRepeat = 'repeat';
+    root.style.backgroundPosition = 'top left';
+    root.style.backgroundSize = '16px 16px';
     title(labels.selectTitle);
     const list = el('div', { className: 'mc10-world-list' });
     content.append(list);
