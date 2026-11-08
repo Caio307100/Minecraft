@@ -260,7 +260,7 @@ export function createWorldStorage(backend = createIndexedDbBackend()) {
     }
 
     /** Cria o registro do mundo (sem save: o terreno nasce da seed). */
-    async function createWorld({ name, seedText = '' }) {
+    async function createWorld({ name, seedText = '', gameMode = 'survival', generateStructures = true }) {
         requestPersistentStorage();
         const existing = new Set((await backend.listMeta()).map(meta => meta.id));
         const now = Date.now();
@@ -268,6 +268,9 @@ export function createWorldStorage(backend = createIndexedDbBackend()) {
             id: makeWorldId(name, existing),
             name: sanitizeWorldName(name),
             seed: parseSeedText(seedText).toString(),
+            gameMode,
+            hardcore: gameMode === 'hardcore',
+            generateStructures: Boolean(generateStructures),
             createdAt: now,
             lastPlayed: now,
             saveVersion: SAVE_VERSION
