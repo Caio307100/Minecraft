@@ -44,13 +44,13 @@ const styleText = `
 .mc10-button span{position:relative;z-index:1}
 .mc10-button.mc10-wide{width:200px}
 .mc10-button.mc10-small{width:98px}
-.mc10-world-list{position:absolute;top:32px;left:50%;transform:translateX(-50%);width:min(320px,90vw);height:calc(100% - 96px);overflow:auto;scrollbar-color:#777 #333}
-.mc10-world-entry{position:relative;height:36px;padding:2px 4px 2px 40px;margin:0 0 0 0;border:2px solid transparent;cursor:pointer;color:#fff;text-align:left}
-.mc10-world-entry.selected{background:rgba(255,255,255,.18);border-color:#aaa}
-.mc10-world-entry:hover{background:rgba(255,255,255,.12)}
-.mc10-world-entry .name{font-size:8px;line-height:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.mc10-world-entry .detail{font-size:7px;color:#aaa;line-height:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.mc10-world-icon{position:absolute;left:2px;top:2px;width:32px;height:32px;background:#555;border:1px solid #aaa;display:grid;place-items:center;font-size:15px}
+.mc10-world-list{position:absolute;top:32px;left:0;width:100%;height:calc(100% - 64px);overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+.mc10-world-entry{position:relative;box-sizing:border-box;width:220px;height:32px;margin:0 auto 4px;padding:0 2px;border:0;cursor:pointer;color:#fff;text-align:left;background:transparent}
+.mc10-world-entry.selected:before{content:'';position:absolute;inset:-2px -2px 0;border:1px solid #fff;background:rgba(255,255,255,.18);pointer-events:none}
+
+.mc10-world-entry .name{position:relative;z-index:1;font-size:8px;line-height:11px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mc10-world-entry .detail,.mc10-world-entry .mode{position:relative;z-index:1;font-size:8px;color:#808080;line-height:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mc10-world-entry .mode.hardcore{color:#aa0000}
+
 .mc10-form{position:absolute;left:50%;top:0;transform:translateX(-50%);width:min(310px,94vw);height:100%;font-size:8px}
 .mc10-label{position:absolute;left:0;color:#a0a0a0;height:12px;white-space:nowrap}
 .mc10-input{position:absolute;left:50%;transform:translateX(-50%);width:200px;height:20px;padding:2px 4px;border:2px solid #a0a0a0;border-right-color:#555;border-bottom-color:#555;border-radius:0;background:#000;color:#fff;font:8px monospace;outline:none}
@@ -74,6 +74,15 @@ export async function openWorldMenu() {
     style.textContent = styleText;
     document.head.append(style);
   }
+
+  // xe.java do Minecraft 1.0 toca random.click em todo GuiButton ativado.
+  const buttonClickSound = new Audio(asset('sounds/random/click.ogg'));
+  buttonClickSound.preload = 'auto';
+  const playButtonSound = () => {
+    const sound = buttonClickSound.cloneNode();
+    sound.volume = 1;
+    sound.play().catch(() => {});
+  };
 
   const root = el('div', { id: 'mc10-menu' });
   let guiScale = 1, guiWidth = 0, guiHeight = 0;
@@ -126,11 +135,12 @@ export async function openWorldMenu() {
       spriteCtx.clearRect(0, 0, width, 20);
       spriteCtx.drawImage(guiAtlas, 0, sy, half, 20, 0, 0, half, 20);
       spriteCtx.drawImage(guiAtlas, 200 - half, sy, half, 20, half, 0, width - half, 20);
-      // ct.java do Minecraft 1.0: texto amarelo-claro ao passar o mouse.
-      setMinecraftText(label, value, font, { scale: 1, shadow: true, color: node.disabled ? '#a0a0a0' : hovered ? '#ffffa0' : '#e0e0e0' });
+      // ct.java do Minecraft 1.0: a cor é herdada pelos glifos via currentColor.
+      label.style.color = node.disabled ? '#a0a0a0' : hovered ? '#ffffa0' : '#e0e0e0';
+      setMinecraftText(label, value, font, { scale: 1, shadow: true });
     };
     node.addEventListener('mouseenter', drawSprite); node.addEventListener('mouseleave', drawSprite);
-    node.addEventListener('click', onClick);
+    node.addEventListener('click', () => { playButtonSound(); onClick?.(); });
     node.addEventListener('change', drawSprite);
     drawSprite();
     parent.append(node);
@@ -174,6 +184,8 @@ export async function openWorldMenu() {
   const finish = value => { stopPanorama(); root.remove(); resolveMenu(value); };
   const load = async id => finish(await storage.loadWorld(id));
   const mainScreen = () => {
+    panorama.style.display = '';
+    root.style.background = '';
     clearContent();
     content.append(logo);
     splashNode = text(content, splash, guiWidth / 2 + 90, 70, '#ffff00');
@@ -197,6 +209,8 @@ export async function openWorldMenu() {
   let worldsCache = [];
   const selectScreen = async () => {
     clearContent();
+    panorama.style.display = 'none';
+    root.style.background = '#202020 url("' + asset('gui/background.png') + '") repeat';
     title(labels.selectTitle);
     const list = el('div', { className: 'mc10-world-list' });
     content.append(list);
@@ -204,16 +218,20 @@ export async function openWorldMenu() {
       worldsCache = await storage.listWorlds();
       list.replaceChildren();
       worldsCache.forEach((world, index) => {
-        const row = el('div', { className: `mc10-world-entry${selectedId === world.id ? ' selected' : ''}`, tabIndex: 0 });
-        const icon = el('div', { className: 'mc10-world-icon' }, '▦');
+        const row = el('div', { className: 'mc10-world-entry' + (selectedId === world.id ? ' selected' : ''), tabIndex: 0 });
         const name = el('div', { className: 'name' });
-        setMinecraftText(name, world.name || `${labels.worldName} ${index + 1}`, font);
-        const date = new Date(world.lastPlayed || world.createdAt || Date.now()).toLocaleString('en-US');
         const detail = el('div', { className: 'detail' });
-        setMinecraftText(detail, `${world.id} (${date})`, font);
-        row.append(icon, name, detail);
+        const mode = el('div', { className: 'mode' });
+        setMinecraftText(name, world.name || (labels.worldName + ' ' + (index + 1)), font);
+        const date = new Date(world.lastPlayed || world.createdAt || Date.now()).toLocaleString();
+        setMinecraftText(detail, world.id + ' (' + date + ')', font);
+        const modeText = world.hardcore ? 'Hardcore' : (world.gameMode === 'creative' ? 'Creative' : 'Survival');
+        setMinecraftText(mode, modeText, font);
+        if (world.hardcore) mode.classList.add('hardcore');
+        row.append(name, detail, mode);
         row.addEventListener('click', () => { selectedId = world.id; refresh(); });
         row.addEventListener('dblclick', () => load(world.id));
+        row.addEventListener('keydown', event => { if (event.key === 'Enter') load(world.id); });
         list.append(row);
       });
     };
@@ -222,15 +240,14 @@ export async function openWorldMenu() {
     const y1 = guiHeight - 52;
     const y2 = guiHeight - 28;
     const play = button(content, labels.play, x - 154, y1, 150, () => selectedId && load(selectedId), true);
-    const rename = button(content, labels.rename, x - 154, y2, 70, () => selectedId && renameDialog());
-    const remove = button(content, labels.delete, x - 74, y2, 70, () => selectedId && deleteDialog());
-    const create = button(content, labels.create, x + 4, y1, 150, createScreen);
+    const rename = button(content, labels.rename, x - 154, y2, 70, () => selectedId && renameDialog(), true);
+    const remove = button(content, labels.delete, x - 74, y2, 70, () => selectedId && deleteDialog(), true);
+    button(content, labels.create, x + 4, y1, 150, createScreen);
     button(content, labels.cancel, x + 4, y2, 150, mainScreen);
     const sync = () => {
       const enabled = worldsCache.some(world => world.id === selectedId && !world.requiresNewerVersion);
       play.disabled = rename.disabled = remove.disabled = !enabled;
     };
-    const oldRefresh = refresh;
     list.addEventListener('click', sync);
     sync();
     async function renameDialog() {
@@ -238,15 +255,14 @@ export async function openWorldMenu() {
       if (!world) return;
       dialog(labels.renameTitle, world.name, labels.renameButton, async value => {
         if (!value.trim()) return;
-        const renamed = await storage.renameWorld(world.id, value);
-        if (renamed) selectedId = renamed.id;
+        await storage.renameWorld(world.id, value);
         await refresh(); sync();
       });
     }
     async function deleteDialog() {
       const world = worldsCache.find(item => item.id === selectedId);
       if (!world) return;
-      dialog(labels.delete, `${labels.deleteQuestion}\n'${world.name}' ${labels.deleteWarning}`, labels.delete, async () => {
+      dialog(labels.delete, labels.deleteQuestion + "\\n'" + world.name + "' " + labels.deleteWarning, labels.delete, async () => {
         await storage.deleteWorld(world.id);
         selectedId = null;
         await refresh(); sync();
@@ -262,8 +278,8 @@ export async function openWorldMenu() {
     else { input = el('input', { className: 'mc10-input', value: initial, maxLength: 32 }); input.style.position = 'relative'; input.style.left = 'auto'; input.style.transform = 'none'; box.append(input); }
     const confirm = el('button', { className: 'mc10-button', type: 'button' }); confirm.style.position = 'relative'; confirm.style.left = 'auto'; confirm.style.margin = '12px 4px 0'; confirm.style.width = '120px'; setMinecraftText(confirm, confirmText, font);
     const cancel = el('button', { className: 'mc10-button', type: 'button' }); cancel.style.position = 'relative'; cancel.style.left = 'auto'; cancel.style.margin = '12px 4px 0'; cancel.style.width = '120px'; setMinecraftText(cancel, labels.cancel, font);
-    confirm.addEventListener('click', async () => { await onConfirm(input?.value ?? ''); box.remove(); });
-    cancel.addEventListener('click', () => box.remove());
+    confirm.addEventListener('click', async () => { playButtonSound(); await onConfirm(input?.value ?? ''); box.remove(); });
+    cancel.addEventListener('click', () => { playButtonSound(); box.remove(); });
     box.append(confirm, cancel); content.append(box); input?.focus(); input?.select();
   };
 
