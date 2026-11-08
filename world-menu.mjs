@@ -183,7 +183,9 @@ export async function openWorldMenu() {
   };
   const finish = value => { stopPanorama(); root.remove(); resolveMenu(value); };
   const load = async id => finish(await storage.loadWorld(id));
+  let activeScreen = null;
   const mainScreen = () => {
+    activeScreen = mainScreen;
     panorama.style.display = '';
     root.style.background = '';
     clearContent();
@@ -208,6 +210,7 @@ export async function openWorldMenu() {
   let selectedId = null;
   let worldsCache = [];
   const selectScreen = async () => {
+    activeScreen = selectScreen;
     clearContent();
     panorama.style.display = 'none';
     root.style.backgroundColor = '#202020';
@@ -215,7 +218,7 @@ export async function openWorldMenu() {
     root.style.backgroundImage = `url("${backgroundUrl}")`;
     root.style.backgroundRepeat = 'repeat';
     root.style.backgroundPosition = 'top left';
-    root.style.backgroundSize = '16px 16px';
+    root.style.backgroundSize = '32px 32px';
     title(labels.selectTitle);
     const list = el('div', { className: 'mc10-world-list' });
     content.append(list);
@@ -288,6 +291,7 @@ export async function openWorldMenu() {
   };
 
   const createScreen = () => {
+    activeScreen = createScreen;
     clearContent();
     title(labels.create);
     const form = el('div', { className: 'mc10-form' });
@@ -343,7 +347,7 @@ export async function openWorldMenu() {
   };
 
   mainScreen();
-  const resizeHandler = () => { updateGuiSize(); mainScreen(); };
+  const resizeHandler = () => { updateGuiSize(); activeScreen?.(); };
   window.addEventListener('resize', resizeHandler);
   menuResult.finally(() => window.removeEventListener('resize', resizeHandler));
   return menuResult;
