@@ -70,20 +70,21 @@ async function readStoredAssets(db, requiredAssets) {
         item.onsuccess = () => resolve([path, item.result]);
         item.onerror = () => reject(item.error);
     })));
-    return new Map(entries.filter(([, blob]) => blob instanceof Blob));
+    const stored = new Map(entries.filter(([, blob]) => blob instanceof Blob));
+    return requiredAssets.every(path => stored.has(path)) ? stored : null;
 }
 
 async function readStaticAssets(requiredAssets) {
-    if (location.protocol === 'file:') return false;
-    try {
-        const checks = await Promise.all(requiredAssets.map(async path => {
+    if (location.protocol === 'file:') return [];
+    const checks = await Promise.all(requiredAssets.map(async path => {
+        try {
             const response = await fetch(`./public/assets/${path}`, { method: 'HEAD', cache: 'no-store' });
-            return response.ok;
-        }));
-        return checks.every(Boolean);
-    } catch {
-        return false;
-    }
+            return response.ok ? null : path;
+        } catch {
+            return path;
+        }
+    }));
+    return checks.filter(Boolean);
 }
 
 function installAssetResolvers(assetUrls) {
@@ -186,13 +187,17 @@ export async function initializeWebAssets() {
         throw error;
     }
 
-    if (await readStaticAssets(requiredAssets)) return;
+    const missingStaticAssets = await readStaticAssets(requiredAssets);
+    if (!missingStaticAssets.length) return;
 
     const db = await openDatabase();
     let assets = await readStoredAssets(db, requiredAssets);
 
-    if (!assets) {
-        showImportScreen(`Os assets desta versão estão incompletos ou desatualizados. Selecione novamente a pasta public/assets atualizada (${requiredAssets.length} arquivos esperados).`);
+    if (missingStaticAssets.length) {
+        showImportScreen(`Faltam ${missingStaticAssets.length} assets nesta versão (${missingStaticAssets.slice(0, 8).join(', ')}${missingStaticAssets.length > 8 ? ', ...' : ''}). Reimporte a pasta public/assets atualizada para corrigir.`);
+        assets = await waitForFolder(db, requiredAssets);
+    } else if (!assets) {
+        showImportScreen(`Os assets importados estão incompletos ou desatualizados. Selecione novamente a pasta public/assets atualizada (${requiredAssets.length} arquivos esperados).`);
         assets = await waitForFolder(db, requiredAssets);
     }
 
