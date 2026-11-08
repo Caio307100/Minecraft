@@ -44,12 +44,12 @@ const styleText = `
 .mc10-button span{position:relative;z-index:1}
 .mc10-button.mc10-wide{width:200px}
 .mc10-button.mc10-small{width:98px}
-.mc10-world-list{position:absolute;top:32px;left:0;width:100%;height:calc(100% - 64px);overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
-.mc10-world-entry{position:relative;display:block;box-sizing:border-box;width:200px;height:36px;margin:0 auto;padding:0 2px;border:0;cursor:pointer;color:#fff;text-align:left;background:transparent}
+.mc10-world-list{position:absolute;top:32px;left:0;width:100%;height:calc(100% - 64px);overflow-y:auto;overflow-x:hidden;scrollbar-width:none;background:rgba(0,0,0,.45)}
+.mc10-world-entry{position:relative;display:block;box-sizing:border-box;width:220px;height:36px;margin:0 auto;padding:0 2px;border:0;cursor:pointer;color:#fff;text-align:left;background:transparent}
 .mc10-world-entry.selected:before{content:'';position:absolute;inset:0;border:1px solid #fff;background:rgba(255,255,255,.18);pointer-events:none}
 
 .mc10-world-entry .name{position:relative;z-index:1;font-size:8px;line-height:12px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.mc10-world-entry .detail{position:relative;z-index:1;font-size:8px;color:#808080;line-height:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mc10-world-entry .detail,.mc10-world-entry .mode{position:relative;z-index:1;font-size:8px;color:#808080;line-height:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 .mc10-form{position:absolute;left:50%;top:0;transform:translateX(-50%);width:min(310px,94vw);height:100%;font-size:8px}
 .mc10-label{position:absolute;left:0;color:#a0a0a0;height:12px;white-space:nowrap}
@@ -214,8 +214,6 @@ export async function openWorldMenu() {
     clearContent();
     panorama.style.display = 'none';
     root.style.backgroundColor = '#202020';
-    root.style.backgroundBlendMode = 'multiply';
-    root.style.backgroundColor = 'rgba(0, 0, 0, 0.72)';
     const backgroundUrl = window.mcAssetUrl?.(asset('gui/background.png')) ?? asset('gui/background.png');
     root.style.backgroundImage = `url("${backgroundUrl}")`;
     root.style.backgroundRepeat = 'repeat';
@@ -231,13 +229,15 @@ export async function openWorldMenu() {
         const row = el('div', { className: 'mc10-world-entry' + (selectedId === world.id ? ' selected' : ''), tabIndex: 0 });
         const name = el('div', { className: 'name' });
         const detail = el('div', { className: 'detail' });
+        const mode = el('div', { className: 'mode' });
         setMinecraftText(name, world.name || (labels.worldName + ' ' + (index + 1)), font);
         const playedAt = world.lastPlayed || world.createdAt;
         const dateText = playedAt ? new Date(playedAt).toLocaleString() : '';
-        const modeText = world.hardcore ? 'Hardcore' : (world.gameMode === 'creative' ? 'Creative' : 'Survival');
-        const details = [world.id, dateText && `(${dateText})`, `(${modeText})`].filter(Boolean).join(' ');
+        const modeText = world.hardcore ? 'Hardcore Mode' : (world.gameMode === 'creative' ? 'Creative Mode' : 'Survival Mode');
+        const details = [world.id, dateText && `(${dateText})`].filter(Boolean).join(' ');
         setMinecraftText(detail, details, font);
-        row.append(name, detail);
+        setMinecraftText(mode, modeText, font);
+        row.append(name, detail, mode);
         row.addEventListener('click', () => { selectedId = world.id; refresh(); });
         row.addEventListener('dblclick', () => load(world.id));
         row.addEventListener('keydown', event => { if (event.key === 'Enter') load(world.id); });
