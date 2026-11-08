@@ -193,11 +193,10 @@ export async function initializeWebAssets() {
     const db = await openDatabase();
     let assets = await readStoredAssets(db, requiredAssets);
 
-    if (missingStaticAssets.length) {
-        showImportScreen(`Faltam ${missingStaticAssets.length} assets nesta versão (${missingStaticAssets.slice(0, 8).join(', ')}${missingStaticAssets.length > 8 ? ', ...' : ''}). Reimporte a pasta public/assets atualizada para corrigir.`);
-        assets = await waitForFolder(db, requiredAssets);
-    } else if (!assets) {
-        showImportScreen(`Os assets importados estão incompletos ou desatualizados. Selecione novamente a pasta public/assets atualizada (${requiredAssets.length} arquivos esperados).`);
+    // Os arquivos locais/publicados têm prioridade. Se faltarem, uma cópia
+    // completa no IndexedDB ainda é suficiente: não pedir reimportação.
+    if (!assets) {
+        showImportScreen(`Os assets desta versão estão incompletos ou desatualizados. Faltam ${missingStaticAssets.length} arquivos publicados. Selecione novamente a pasta public/assets atualizada (${requiredAssets.length} arquivos esperados).`);
         assets = await waitForFolder(db, requiredAssets);
     }
 
