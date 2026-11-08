@@ -191,13 +191,22 @@ export async function initializeWebAssets() {
     const missingStaticAssets = await readStaticAssets(requiredAssets);
     if (!missingStaticAssets.length) return;
 
-    // Se a hospedagem não contém todos os arquivos, sempre avisa e pede a pasta
-    // local. Não usa silenciosamente um cache antigo do IndexedDB.
+    // A hospedagem pode não publicar os assets originais. Reutiliza a cópia
+    // completa já importada neste navegador antes de pedir a pasta novamente.
     let db = null;
     try {
         db = await openDatabase();
+        const stored = await readStoredAssets(db, requiredAssets);
+        if (stored) {
+            const urls = new Map();
+            for (const [path, blob] of stored) urls.set(path, URL.createObjectURL(blob));
+            installAssetResolvers(urls);
+            document.querySelector('#asset-loader').hidden = true;
+            db.close();
+            return;
+        }
     } catch (error) {
-        console.warn('IndexedDB indisponível; os assets serão usados apenas nesta sessão.', error);
+        console.warn('Não foi possível reutilizar os assets do IndexedDB.', error);
     }
 
     showImportScreen(`Não foi possível encontrar ${missingStaticAssets.length} de ${requiredAssets.length} assets publicados. Selecione a pasta public/assets do projeto para carregar os arquivos que faltam.`);
