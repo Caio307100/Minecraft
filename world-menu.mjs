@@ -45,7 +45,7 @@ const styleText = `
 .mc10-button.mc10-wide{width:200px}
 .mc10-button.mc10-small{width:98px}
 .mc10-world-list{position:absolute;top:32px;left:0;width:100%;height:calc(100% - 64px);overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
-.mc10-world-entry{position:relative;display:block;box-sizing:border-box;width:220px;height:36px;margin:0 auto;padding:0 2px;border:0;cursor:pointer;color:#fff;text-align:left;background:transparent}
+.mc10-world-entry{position:relative;display:block;box-sizing:border-box;width:200px;height:36px;margin:0 auto;padding:0 2px;border:0;cursor:pointer;color:#fff;text-align:left;background:transparent}
 .mc10-world-entry.selected:before{content:'';position:absolute;inset:0;border:1px solid #fff;background:rgba(255,255,255,.18);pointer-events:none}
 
 .mc10-world-entry .name{position:relative;z-index:1;font-size:8px;line-height:12px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -214,6 +214,8 @@ export async function openWorldMenu() {
     clearContent();
     panorama.style.display = 'none';
     root.style.backgroundColor = '#202020';
+    root.style.backgroundBlendMode = 'multiply';
+    root.style.backgroundColor = 'rgba(0, 0, 0, 0.72)';
     const backgroundUrl = window.mcAssetUrl?.(asset('gui/background.png')) ?? asset('gui/background.png');
     root.style.backgroundImage = `url("${backgroundUrl}")`;
     root.style.backgroundRepeat = 'repeat';
