@@ -24,6 +24,17 @@ import {
 
 await initializeWebAssets();
 
+function readPersistedOptions() {
+    const values = {};
+    try {
+        for (const line of (localStorage.getItem('mc10-options.txt') || '').split(/\r?\n/)) {
+            const separator = line.indexOf(':');
+            if (separator > 0) values[line.slice(0, separator)] = line.slice(separator + 1);
+        }
+    } catch {}
+    return values;
+}
+
 const canvas = document.querySelector('#game');
 const gl = canvas.getContext('webgl2');
 
@@ -477,6 +488,7 @@ function readGrassPixels(image) {
 }
 
 async function main() {
+    const persistedOptions = readPersistedOptions();
     const response = await fetch('./public/assets/mc10_faces_spec.json');
 
     if (!response.ok) {
@@ -810,9 +822,10 @@ async function main() {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    const savedGamma = Number.isFinite(Number(persistedOptions.gamma)) ? Number(persistedOptions.gamma) : 0;
     gl.texImage2D(
         gl.TEXTURE_2D, 0, gl.RGBA, 16, 16, 0,
-        gl.RGBA, gl.UNSIGNED_BYTE, createMinecraft10Lightmap()
+        gl.RGBA, gl.UNSIGNED_BYTE, createMinecraft10Lightmap({ gamma: savedGamma })
     );
 
     let torchFlicker = 0;
@@ -823,7 +836,7 @@ async function main() {
         gl.texSubImage2D(
             gl.TEXTURE_2D, 0, 0, 0, 16, 16,
             gl.RGBA, gl.UNSIGNED_BYTE,
-            createMinecraft10Lightmap({ torchFlicker })
+            createMinecraft10Lightmap({ torchFlicker, gamma: savedGamma })
         );
         gl.activeTexture(gl.TEXTURE0);
     }
@@ -928,12 +941,16 @@ async function main() {
     const craftingSlots = new Array(4).fill(null);
     let carriedStack = null;
     let inventoryPointer = { x: 88, y: 83 };
-    let difficulty = selectedWorld.save?.player?.difficulty ?? 2; // 0 peaceful, 1 easy, 2 normal, 3 hard.
-    let mouseSensitivity = 0.5;
-    let musicVolume = 1;
-    let soundVolume = 1;
-    let invertMouse = false;
-    let fieldOfView = 70;
+    // GameSettings (ki.java): lê as mesmas chaves gravadas no options.txt do Minecraft 1.0.
+    const savedOptions = persistedOptions;
+    let difficulty = savedOptions.difficulty !== undefined && Number.isInteger(Number(savedOptions.difficulty)) ? Number(savedOptions.difficulty) : (selectedWorld.save?.player?.difficulty ?? 2);
+    let mouseSensitivity = Number.isFinite(Number(savedOptions.mouseSensitivity)) ? Number(savedOptions.mouseSensitivity) : 0.5;
+    let musicVolume = Number.isFinite(Number(savedOptions.music)) ? Number(savedOptions.music) : 1;
+    let soundVolume = Number.isFinite(Number(savedOptions.sound)) ? Number(savedOptions.sound) : 1;
+    let invertMouse = savedOptions.invertYMouse === 'true';
+    let fieldOfView = 70 + (Number.isFinite(Number(savedOptions.fov)) ? Number(savedOptions.fov) : 0) * 40;
+    legacyAudio.setMusicVolume(musicVolume);
+    legacyAudio.setSoundVolume(soundVolume);
     let health = selectedWorld.save?.player?.health ?? 20;
     let air = selectedWorld.save?.player?.air ?? 300;
     let hurtTicks = 0;

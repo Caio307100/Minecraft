@@ -3,6 +3,7 @@ import { createVanillaPanorama } from './panorama-renderer.mjs';
 import { loadMinecraftFont, setMinecraftText } from './minecraft-font.mjs';
 import { asset, labels, styleText, el } from './world-menu-ui.mjs';
 import { createWorldScreen } from './create-world-screen.mjs';
+import { createOptionsScreen } from './mc-options-screen.mjs';
 
 const storage = createWorldStorage();
 
@@ -144,10 +145,11 @@ export async function openWorldMenu() {
     button(content, labels.singleplayer, x, y, 200, selectScreen);
     button(content, labels.multiplayer, x, y + 24, 200, () => {});
     button(content, labels.texturePacks, x, y + 48, 200, () => {});
-    button(content, labels.options, x, y + 84, 98, () => {});
+    button(content, labels.options, x, y + 84, 98, () => optionsUi?.open());
     button(content, labels.quit, Math.floor(guiWidth / 2) + 2, y + 84, 98, () => window.close());
   };
 
+  let optionsUi = null;
   let selectedId = null;
   let worldsCache = [];
   const selectScreen = async () => {
@@ -252,6 +254,12 @@ export async function openWorldMenu() {
 
   const createScreen = createWorldScreen({
     content, guiHeight, font, storage, text, button, title, clearContent, mainScreen, finish, dialog,
+    setActiveScreen: screen => { activeScreen = screen; }
+  });
+
+  optionsUi = createOptionsScreen({
+    content, getSize: () => ({ width: guiWidth, height: guiHeight }), font, button, text,
+    clearContent, mainScreen, playButtonSound,
     setActiveScreen: screen => { activeScreen = screen; }
   });
 
