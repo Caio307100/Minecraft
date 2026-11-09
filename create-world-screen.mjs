@@ -70,7 +70,7 @@ export function createWorldScreen({ content, guiHeight, font, storage, text, but
       try {
         const meta = await storage.createWorld({
           name: name.value,
-          seedText: advanced ? seed.value : '',
+          seedText: seed.value,
           gameMode: mode,
           generateStructures: structuresEnabled
         });
