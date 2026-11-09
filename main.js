@@ -641,6 +641,16 @@ async function main() {
         };
     }
 
+    const cloudGpu = createGpuMesh({
+        positions: new Float32Array([-256,0,-256, -256,0,256, 256,0,256, 256,0,-256]),
+        uvs: new Float32Array([0,0, 0,0.25, 0.25,0.25, 0.25,0]),
+        normals: new Float32Array([0,1,0, 0,1,0, 0,1,0, 0,1,0]),
+        colors: new Float32Array([1,1,1, 1,1,1, 1,1,1, 1,1,1]),
+        lights: new Float32Array([1,1, 1,1, 1,1, 1,1]),
+        alphas: new Float32Array([1,1,1,1]),
+        indices: new Uint16Array([0,1,2, 0,2,3])
+    });
+
     const makeParticleGpuMesh = () => createGpuMesh({
         positions: new Float32Array(48000),
         uvs: new Float32Array(32000),
@@ -739,6 +749,12 @@ async function main() {
     const itemsParticleTexture = await loadParticleTexture('./public/assets/mc10/gui/items.png');
     const explosionTexture = await loadParticleTexture('./public/assets/mc10/explosion.png');
     const footprintTexture = await loadParticleTexture('./public/assets/mc10/footprint.png');
+    const cloudsTexture = await loadParticleTexture('./public/assets/mc10/environment/clouds.png');
+    gl.bindTexture(gl.TEXTURE_2D, cloudsTexture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
     gl.bindTexture(gl.TEXTURE_2D, texture);
 
     const steveSkinImage = new Image();
@@ -1147,19 +1163,32 @@ async function main() {
 
     const renderDistanceNames = ['Far', 'Normal', 'Short', 'Tiny'];
     const renderDistanceRadii = [16, 8, 4, 2];
-    // Evita que o cálculo global de iluminação processe centenas de chunks
-    // de uma só vez. O jogador ainda pode aumentar a distância nas opções.
-    let renderDistance = 0;
-    let smoothLighting = true;
-    let viewBobbing = true;
-    try {
-        const savedVideoOptions = JSON.parse(localStorage.getItem('mc10-video-options') || '{}');
-        if (Number.isInteger(savedVideoOptions.renderDistance) && savedVideoOptions.renderDistance >= 0 && savedVideoOptions.renderDistance < 4) renderDistance = savedVideoOptions.renderDistance;
-        if (typeof savedVideoOptions.smoothLighting === 'boolean') smoothLighting = savedVideoOptions.smoothLighting;
-        if (typeof savedVideoOptions.viewBobbing === 'boolean') viewBobbing = savedVideoOptions.viewBobbing;
-    } catch {}
+    let savedVideoOptions = {};
+    try { savedVideoOptions = JSON.parse(localStorage.getItem('mc10-video-options') || '{}'); } catch {}
+    const optionBoolean = (key, fallback) => {
+        const legacyKey = ({ ao:'smoothLighting', bobView:'viewBobbing', renderClouds:'clouds' })[key] || key;
+        return savedOptions[key] === undefined
+            ? (typeof savedVideoOptions[legacyKey] === 'boolean' ? savedVideoOptions[legacyKey] : fallback)
+            : savedOptions[key] === 'true';
+    };
+    const optionIndex = (key, fallback, max) => {
+        const legacyKey = key === 'viewDistance' ? 'renderDistance' : key;
+        const raw = savedOptions[key] !== undefined ? Number(savedOptions[key]) : Number(savedVideoOptions[legacyKey]);
+        return Number.isInteger(raw) && raw >= 0 && raw <= max ? raw : fallback;
+    };
+    // GameSettings.ki: options.txt é a fonte primária das configurações.
+    let renderDistance = optionIndex('viewDistance', 0, 3);
+    let smoothLighting = optionBoolean('ao', true);
+    let viewBobbing = optionBoolean('bobView', true);
+    let fancyGraphics = optionBoolean('fancyGraphics', true);
+    let cloudsEnabled = optionBoolean('renderClouds', true);
+    let particleSetting = optionIndex('particles', 0, 2);
+    let guiScaleSetting = optionIndex('guiScale', 0, 3);
     const saveVideoOptions = () => {
-        try { localStorage.setItem('mc10-video-options', JSON.stringify({ renderDistance, smoothLighting, viewBobbing })); } catch {}
+        try { localStorage.setItem('mc10-video-options', JSON.stringify({
+            renderDistance, smoothLighting, viewBobbing, fancyGraphics,
+            clouds:cloudsEnabled, particles:particleSetting, guiScale:guiScaleSetting
+        })); } catch {}
     };
     let chunkRadius = renderDistanceRadii[renderDistance];
     const loadedChunks = new Map();
@@ -1287,7 +1316,7 @@ async function main() {
             const entry = loadedChunks.get(key);
             if (!entry) continue;
             if (entry.gpu) deleteGpuChunk(entry.gpu);
-            entry.gpu = createGpuChunk(buildTerrainMesh(spec, entry.chunk, neighbors, { smoothLighting }));
+            entry.gpu = createGpuChunk(buildTerrainMesh(spec, entry.chunk, neighbors, { smoothLighting, fancyGraphics }));
             entry.sectionsNonEmpty = countNonEmptySections(entry.chunk);
             debugChunkUpdatesCount++;
             built++;
@@ -2574,12 +2603,10 @@ function setMeterSprites(element, baseU, fillU, v) {
     }
 
     function updateHudScale() {
-        const scale = Math.max(
-            1,
-            Math.min(4, Math.floor(
-                Math.min(window.innerWidth / 320, window.innerHeight / 240)
-            ))
-        );
+        const maxFit = Math.max(1, Math.floor(
+            Math.min(window.innerWidth / 320, window.innerHeight / 240)
+        ));
+        const scale = guiScaleSetting === 0 ? maxFit : Math.max(1, Math.min(guiScaleSetting, maxFit));
         document.documentElement.style.setProperty('--hud-scale', scale);
         setMinecraftText(document.querySelector('#death-title'), 'You died!', minecraftFont, { scale: 2 * scale });
         setMinecraftText(document.querySelector('#death-score'), 'Score: 0', minecraftFont, { scale });
@@ -2695,6 +2722,7 @@ function setMeterSprites(element, baseU, fillU, v) {
             return foliagePixels[colorIndex] & 0xffffff;
         }
     });
+    particleEngine.setParticleSetting(particleSetting);
 
     // randomDisplayTick dos blocos do JAR 1.0: agw (líquidos),
     // wj (fogo), kw (redstone), sc (portal) e sy (mesa de encantamento).
@@ -4404,6 +4432,39 @@ function setMeterSprites(element, baseU, fillU, v) {
         gl.depthMask(true);
         gl.disable(gl.BLEND);
         gl.bindVertexArray(null);
+
+        // RenderGlobal.afv usa environment/clouds.png para a camada de nuvens.
+        if (cloudsEnabled) {
+            gl.useProgram(program);
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, cloudsTexture);
+            gl.uniformMatrix4fv(mvpLocation, false, mvp);
+            gl.uniformMatrix4fv(modelLocation, false, identityModel);
+            gl.uniform3f(offsetLocation, cameraPosition[0] - 256, 128, cameraPosition[2] - 256);
+            const cloudOffset = now * 0.00000029296875;
+            gl.bindBuffer(gl.ARRAY_BUFFER, cloudGpu.buffers[1]);
+            gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array([
+                (cameraPosition[0] - 256) / 2048 + cloudOffset, (cameraPosition[2] - 256) / 2048 + cloudOffset,
+                (cameraPosition[0] - 256) / 2048 + cloudOffset, (cameraPosition[2] + 256) / 2048 + cloudOffset,
+                (cameraPosition[0] + 256) / 2048 + cloudOffset, (cameraPosition[2] + 256) / 2048 + cloudOffset,
+                (cameraPosition[0] + 256) / 2048 + cloudOffset, (cameraPosition[2] - 256) / 2048 + cloudOffset
+            ]));
+            gl.uniform1f(applyLightmapLocation, 0.0);
+            gl.uniform1f(alphaTestLocation, 0.0);
+            gl.uniform1f(alphaMultiplierLocation, 1.0);
+            gl.enable(gl.BLEND);
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+            gl.depthMask(false);
+            gl.disable(gl.CULL_FACE);
+            gl.bindVertexArray(cloudGpu.vao);
+            gl.drawElements(gl.TRIANGLES, cloudGpu.indexCount, gl.UNSIGNED_SHORT, 0);
+            gl.bindVertexArray(null);
+            gl.enable(gl.CULL_FACE);
+            gl.depthMask(true);
+            gl.disable(gl.BLEND);
+            gl.uniform1f(applyLightmapLocation, 1.0);
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+        }
 
         debugTerrainMs = performance.now() - terrainWorkStartedAt;
 

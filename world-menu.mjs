@@ -26,11 +26,20 @@ export async function openWorldMenu() {
 
   const root = el('div', { id: 'mc10-menu' });
   let guiScale = 1, guiWidth = 0, guiHeight = 0;
+  const readGuiScaleSetting = () => {
+    try {
+      const rows = (localStorage.getItem('mc10-options.txt') || '').split(/\r?\n/);
+      const line = rows.find(value => value.startsWith('guiScale:'));
+      if (line) return Math.max(0, Math.min(3, Number(line.slice(9)) || 0));
+      const legacy = JSON.parse(localStorage.getItem('mc10-video-options') || '{}');
+      return Number.isInteger(legacy.guiScale) ? Math.max(0, Math.min(3, legacy.guiScale)) : 0;
+    } catch { return 0; }
+  };
   const updateGuiSize = () => {
-    // ef.java do Minecraft 1.0: guiScale 0 (Auto), mínimo 320x240,
-    // sem limite artificial de escala e dimensões arredondadas para cima.
-    guiScale = 1;
-    while (innerWidth / (guiScale + 1) >= 320 && innerHeight / (guiScale + 1) >= 240) guiScale++;
+    // ef.java do Minecraft 1.0: 0 = Auto; escalas explícitas respeitam 320x240.
+    const requested = readGuiScaleSetting();
+    const maxFit = Math.max(1, Math.floor(Math.min(innerWidth / 320, innerHeight / 240)));
+    guiScale = requested === 0 ? maxFit : Math.max(1, Math.min(requested, maxFit));
     guiWidth = Math.ceil(innerWidth / guiScale);
     guiHeight = Math.ceil(innerHeight / guiScale);
     content.style.width = `${guiWidth}px`; content.style.height = `${guiHeight}px`;
@@ -258,9 +267,10 @@ export async function openWorldMenu() {
   });
 
   optionsUi = createOptionsScreen({
-    content, getSize: () => ({ width: guiWidth, height: guiHeight }), font, button, text,
+    content, getSize: () => ({ width: guiWidth, height: guiHeight }), font, button, text, guiAtlas,
     clearContent, mainScreen, playButtonSound,
-    setActiveScreen: screen => { activeScreen = screen; }
+    setActiveScreen: screen => { activeScreen = screen; },
+    onGuiScaleChange: updateGuiSize
   });
 
   mainScreen();
