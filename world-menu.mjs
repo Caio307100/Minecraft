@@ -218,11 +218,22 @@ export async function openWorldMenu() {
     async function deleteDialog() {
       const world = worldsCache.find(item => item.id === selectedId);
       if (!world) return;
-      dialog(labels.delete, labels.deleteQuestion + "\\n'" + world.name + "' " + labels.deleteWarning, labels.delete, async () => {
+
+      // go (GuiYesNo) do Minecraft 1.0: mantém o fundo da tela anterior,
+      // desenha duas linhas centralizadas e usa dois botões vanilla lado a lado.
+      activeScreen = deleteDialog;
+      clearContent();
+      const message = "'" + world.name + "' " + labels.deleteWarning;
+      text(content, labels.deleteQuestion, guiWidth / 2, 70, '#fff', true);
+      text(content, message, guiWidth / 2, 90, '#fff', true);
+      const buttonY = Math.floor(guiHeight / 6) + 96;
+      const left = Math.floor(guiWidth / 2) - 155;
+      button(content, labels.delete, left, buttonY, 150, async () => {
         await storage.deleteWorld(world.id);
         selectedId = null;
-        await refresh(); sync();
-      }, true);
+        selectScreen();
+      });
+      button(content, labels.cancel, left + 160, buttonY, 150, selectScreen);
     }
   };
 

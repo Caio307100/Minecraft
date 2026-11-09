@@ -137,7 +137,8 @@ export function createTerrainChunkGenerator(seed, { grassPixels } = {}) {
                 chunkZ,
                 noiseGenerator: densityGenerator.noiseR,
                 biomeIds: climate.biomeIds,
-                temperatures: climate.temperature
+                temperatures: climate.temperature,
+                seed
             });
 
             const metadata = generateForestTrees({

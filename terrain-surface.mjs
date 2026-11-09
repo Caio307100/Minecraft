@@ -37,6 +37,7 @@ export function applyTerrainSurface({
     noiseGenerator,
     biomeIds,
     temperatures,
+    seed = 0n,
     seaLevel = SEA_LEVEL
 }) {
     if (!(blocks instanceof Uint8Array) || blocks.length !== 32768) {
@@ -64,8 +65,10 @@ export function applyTerrainSurface({
         0.0625
     );
 
-    const random = new JavaRandom(0n);
+    const worldSeed = BigInt(seed);
+    const random = new JavaRandom(worldSeed);
     random.setSeed(
+        worldSeed +
         BigInt(chunkX) * CHUNK_SEED_X +
         BigInt(chunkZ) * CHUNK_SEED_Z
     );
