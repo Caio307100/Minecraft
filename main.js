@@ -1,6 +1,7 @@
 import { createClimateQuery, grassColor, grassColorIndex, grassPixelsFromRgba } from './climate.mjs';
 import { initializeWebAssets } from './web-assets.mjs';
 import { openWorldMenu } from './world-menu.mjs';
+import { createOptionsScreen } from './mc-options-screen.mjs';
 import { createWorldStorage, serializeModifiedChunks, deserializeModifiedChunks } from './world-storage.mjs';
 import { buildTerrainMesh } from './terrain-mesher.mjs';
 import { createWorldLightingTask, initializeChunkLighting, refreshSkyLightColumn } from './sky-light.mjs';
@@ -838,10 +839,10 @@ async function main() {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    const savedGamma = Number.isFinite(Number(persistedOptions.gamma)) ? Number(persistedOptions.gamma) : 0;
+    let currentGamma = Number.isFinite(Number(persistedOptions.gamma)) ? Number(persistedOptions.gamma) : 0;
     gl.texImage2D(
         gl.TEXTURE_2D, 0, gl.RGBA, 16, 16, 0,
-        gl.RGBA, gl.UNSIGNED_BYTE, createMinecraft10Lightmap({ gamma: savedGamma })
+        gl.RGBA, gl.UNSIGNED_BYTE, createMinecraft10Lightmap({ gamma: currentGamma })
     );
 
     let torchFlicker = 0;
@@ -852,7 +853,7 @@ async function main() {
         gl.texSubImage2D(
             gl.TEXTURE_2D, 0, 0, 0, 16, 16,
             gl.RGBA, gl.UNSIGNED_BYTE,
-            createMinecraft10Lightmap({ torchFlicker, gamma: savedGamma })
+            createMinecraft10Lightmap({ torchFlicker, gamma: currentGamma })
         );
         gl.activeTexture(gl.TEXTURE0);
     }
@@ -1070,12 +1071,12 @@ async function main() {
 
     window.addEventListener('keydown', event => {
         if (!inventoryOpen && !gameMenuOpen && !chatOpen && event.code === getControlCode('chat') &&
-            !controlsScreen.classList.contains('open')) {
+            !gameMenuOpen) {
             event.preventDefault();
             openChat();
             return;
         }
-        if (inventoryOpen || gameMenuOpen || chatOpen || controlsScreen.classList.contains('open')) return;
+        if (inventoryOpen || gameMenuOpen || chatOpen) return;
         if (controlBindings.some(binding => ['forward','left','back','right','jump','sneak'].includes(binding.id) && binding.code === event.code)) {
             event.preventDefault();
             pressedKeys.add(event.code);
@@ -1116,8 +1117,7 @@ async function main() {
 
     window.addEventListener('keydown', event => {
         if (event.code !== 'F3' || event.repeat) return;
-        if (inventoryOpen || gameMenuOpen || chatOpen || dead ||
-            controlsScreen.classList.contains('open')) return;
+        if (inventoryOpen || gameMenuOpen || chatOpen || dead) return;
         event.preventDefault();
         debugInfo = !debugInfo;
         debugFrameCount = 0;
@@ -1554,28 +1554,9 @@ async function main() {
     const airIcons = document.querySelector('#air-icons');
     const deathScreen = document.querySelector('#death-screen');
     const gameMenu = document.querySelector('#game-menu');
+    const optionsButton = document.querySelector('#options-button');
     const backToGameButton = document.querySelector('#back-to-game');
     const saveQuitTitleButton = document.querySelector('#save-quit-title');
-    const optionsScreen = document.querySelector('#options-screen');
-    const videoOptionsScreen = document.querySelector('#video-options-screen');
-    const controlsScreen = document.querySelector('#controls-screen');
-    const optionsButton = document.querySelector('#options-button');
-    const optionsDoneButton = document.querySelector('#options-done');
-    const musicSlider = document.querySelector('#option-music');
-    const soundSlider = document.querySelector('#option-sound');
-    const sensitivitySlider = document.querySelector('#option-sensitivity');
-    const invertButton = document.querySelector('#option-invert');
-    const fovSlider = document.querySelector('#option-fov');
-    const difficultyButton = document.querySelector('#option-difficulty');
-    const videoOptionsButton = document.querySelector('#options-video');
-    const controlsOptionsButton = document.querySelector('#options-controls');
-    const optionsLabels = { music: document.querySelector('#option-music-label'), sound: document.querySelector('#option-sound-label'), sensitivity: document.querySelector('#option-sensitivity-label'), fov: document.querySelector('#option-fov-label') };
-    const videoOptionsDone = document.querySelector('#video-options-done');
-    const renderDistanceButton = document.querySelector('#option-render-distance');
-    const smoothLightingButton = document.querySelector('#option-smooth-lighting');
-    const viewBobbingButton = document.querySelector('#option-view-bobbing');
-    const controlsDone = document.querySelector('#controls-done');
-    const controlsList = document.querySelector('#controls-list');
     const controlBindings = [
         { id: 'attack', name: 'Attack', code: 'Mouse0' },
         { id: 'use', name: 'Use Item', code: 'Mouse2' },
@@ -1591,12 +1572,10 @@ async function main() {
         { id: 'playerlist', name: 'Player List', code: 'Tab' },
         { id: 'pickItem', name: 'Pick Block', code: 'Mouse1' }
     ];
-    let waitingForControl = -1;
     try {
         const saved = JSON.parse(localStorage.getItem('mc10-controls') || '{}');
         for (const binding of controlBindings) if (typeof saved[binding.id] === 'string') binding.code = saved[binding.id];
     } catch {}
-    let optionsOpen = false;
     const respawnButton = document.querySelector('#respawn-button');
     const inventoryScreen = document.querySelector('#inventory-screen');
     const inventoryPanel = document.querySelector('#inventory-panel');
@@ -1636,10 +1615,7 @@ async function main() {
     }
 
     function openChat() {
-        if (dead || inventoryOpen || gameMenuOpen || chatOpen ||
-            controlsScreen.classList.contains('open') ||
-            document.querySelector('#options-screen').classList.contains('open') ||
-            document.querySelector('#video-options-screen').classList.contains('open')) return;
+        if (dead || inventoryOpen || gameMenuOpen || chatOpen) return;
         chatOpen = true;
         pressedKeys.clear();
         sprinting = false;
@@ -2036,84 +2012,6 @@ async function main() {
         }
     });
 
-    const optionNames = ['Music', 'Sound', 'Invert Mouse', 'Sensitivity', 'FOV', 'Difficulty'];
-    const difficultyNames = ['Peaceful', 'Easy', 'Normal', 'Hard'];
-    const fovLabel = value => value === 0 ? 'FOV: Normal' : value === 100 ? 'FOV: Quake Pro' : `FOV: ${70 + Math.floor(value * 0.4)}`;
-    function updateOptionLabels() {
-        setMinecraftText(optionsLabels.music, `Music: ${musicVolume === 0 ? 'OFF' : Math.round(musicVolume * 100) + '%'}`, minecraftFont);
-        setMinecraftText(optionsLabels.sound, `Sound: ${soundVolume === 0 ? 'OFF' : Math.round(soundVolume * 100) + '%'}`, minecraftFont);
-        setMinecraftText(invertButton, `Invert Mouse: ${invertMouse ? 'ON' : 'OFF'}`, minecraftFont);
-        setMinecraftText(optionsLabels.sensitivity, mouseSensitivity === 0 ? 'Sensitivity: MIN' : mouseSensitivity === 1 ? 'Sensitivity: MAX' : `Sensitivity: ${Math.floor(mouseSensitivity * 200)}%`, minecraftFont);
-        setMinecraftText(optionsLabels.fov, fovLabel(fieldOfView), minecraftFont);
-        setMinecraftText(difficultyButton, `Difficulty: ${difficultyNames[difficulty]}`, minecraftFont);
-        setMinecraftText(videoOptionsButton, 'Video Settings...', minecraftFont);
-        setMinecraftText(controlsOptionsButton, 'Controls...', minecraftFont);
-        setMinecraftText(optionsDoneButton, 'Done', minecraftFont);
-        setMinecraftText(videoOptionsDone, 'Done', minecraftFont);
-        setMinecraftText(controlsDone, 'Done', minecraftFont);
-        setMinecraftText(document.querySelector('#options-title'), 'Options', minecraftFont);
-        setMinecraftText(document.querySelector('#video-options-title'), 'Video Settings', minecraftFont);
-        setMinecraftText(renderDistanceButton, `Render Distance: ${renderDistanceNames[renderDistance]}`, minecraftFont);
-        setMinecraftText(smoothLightingButton, `Smooth Lighting: ${smoothLighting ? 'ON' : 'OFF'}`, minecraftFont);
-        setMinecraftText(viewBobbingButton, `View Bobbing: ${viewBobbing ? 'ON' : 'OFF'}`, minecraftFont);
-        setMinecraftText(document.querySelector('#controls-title'), 'Controls', minecraftFont);
-        for (const [index, binding] of controlBindings.entries()) {
-            const entry = controlsList.children[index];
-            const button = entry?.querySelector('.mc-option-control');
-            if (button) setMinecraftText(button, waitingForControl === index ? '> ??? <' : formatControlCode(binding.code), minecraftFont);
-        }
-    }
-    function placeOptionsControls() {
-        const scale = Number(getComputedStyle(document.documentElement).getPropertyValue('--hud-scale')) || 1;
-        const width = innerWidth, height = innerHeight;
-        const x = width / 2 - 155 * scale, y = height / 6;
-        const place = (el, col, row, w=150) => {
-            el.style.left = `${x + col * 160 * scale}px`;
-            el.style.top = `${y + 24 * row * scale}px`;
-            if (el.classList.contains('mc-option-control')) el.style.width = `${w}px`;
-        };
-        place(optionsLabels.music,0,0); place(musicSlider,0,0);
-        place(optionsLabels.sound,1,0); place(soundSlider,1,0);
-        place(invertButton,0,1);
-        place(optionsLabels.sensitivity,1,1); place(sensitivitySlider,1,1);
-        place(optionsLabels.fov,0,2); place(fovSlider,0,2);
-        place(difficultyButton,1,2);
-        for (const [el,col,row] of [[renderDistanceButton,0,0],[smoothLightingButton,1,0],[viewBobbingButton,0,1]]) {
-            el.style.left = `${x + col * 160 * scale}px`;
-            el.style.top = `${y + 24 * row * scale}px`;
-            el.style.width = '150px';
-            el.style.transform = `scale(${scale})`;
-            el.style.transformOrigin = 'top left';
-        }
-        for (const [el,offset] of [[videoOptionsButton,108],[controlsOptionsButton,132],[optionsDoneButton,168]]) {
-            el.style.left = `${width/2 - 100*scale}px`;
-            el.style.top = `${y + offset*scale}px`;
-            el.style.width = '200px';
-            el.style.transform = `scale(${scale})`;
-            el.style.transformOrigin = 'top left';
-        }
-    }
-    function formatControlCode(code) {
-        if (code === 'Mouse0') return 'Button 1';
-        if (code === 'Mouse1') return 'Button 3';
-        if (code === 'Mouse2') return 'Button 2';
-        if (code.startsWith('Key')) return code.slice(3);
-        if (code.startsWith('Digit')) return code.slice(5);
-        if (code === 'ShiftLeft' || code === 'ShiftRight') return 'Shift';
-        return code;
-    }
-    function saveControlBindings() {
-        try { localStorage.setItem('mc10-controls', JSON.stringify(Object.fromEntries(controlBindings.map(({id,code}) => [id,code])))); } catch {}
-    }
-    function setControlBinding(index, code) {
-        if (index < 0 || index >= controlBindings.length) return;
-        const duplicate = controlBindings.findIndex((binding, i) => i !== index && binding.code === code);
-        if (duplicate >= 0) controlBindings[duplicate].code = '';
-        controlBindings[index].code = code;
-        waitingForControl = -1;
-        saveControlBindings();
-        updateOptionLabels();
-    }
     function getControlCode(id) { return controlBindings.find(binding => binding.id === id)?.code; }
     function isControlDown(id) {
         const code = getControlCode(id);
@@ -2247,82 +2145,141 @@ async function main() {
         mobileKeys.clear();
         for (const button of [mobileAttack, mobileUse, mobileJump, mobileSneak]) button.classList.remove('active');
     });
-    controlBindings.forEach((binding, index) => {
-        const entry = document.createElement('div');
-        entry.className = 'mc-control-entry';
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'mc-option-control';
-        button.addEventListener('click', () => { waitingForControl = index; updateOptionLabels(); });
-        const name = document.createElement('span');
-        name.className = 'mc-control-name';
-        setMinecraftText(name, binding.name, minecraftFont);
-        entry.append(button, name);
-        controlsList.append(entry);
+    // GuiOptions (ex) compartilhada com o menu principal: só muda o pai e o fundo.
+    const pauseOptionsHost = document.createElement('div');
+    Object.assign(pauseOptionsHost.style, {
+        position: 'fixed', inset: '0', zIndex: '29', display: 'none', pointerEvents: 'auto'
     });
-    function openOptions() {
-        optionsOpen = true; gameMenuOpen = false;
-        gameMenu.classList.remove('open'); gameMenu.setAttribute('aria-hidden','true');
-        optionsScreen.classList.add('open'); optionsScreen.setAttribute('aria-hidden','false');
-        musicSlider.value = String(Math.round(musicVolume*100));
-        soundSlider.value = String(Math.round(soundVolume*100));
-        sensitivitySlider.value = String(Math.round(mouseSensitivity*100));
-        fovSlider.value = String(fieldOfView === 70 ? 0 : Math.round((fieldOfView-70)/0.4));
-        placeOptionsControls(); updateOptionLabels();
-    }
-    function closeOptions() {
-        if (!optionsOpen) return;
-        optionsOpen = false; optionsScreen.classList.remove('open');
-        optionsScreen.setAttribute('aria-hidden','true'); openGameMenu();
-    }
-    function openSubOptions(screen) {
-        optionsScreen.classList.remove('open'); optionsScreen.setAttribute('aria-hidden','true');
-        screen.classList.add('open'); screen.setAttribute('aria-hidden','false');
-    }
-    function closeSubOptions(screen) {
-        screen.classList.remove('open'); screen.setAttribute('aria-hidden','true');
-        optionsScreen.classList.add('open'); optionsScreen.setAttribute('aria-hidden','false');
-    }
-    optionsButton.addEventListener('click', openOptions);
-    optionsDoneButton.addEventListener('click', closeOptions);
-    musicSlider.addEventListener('input', () => { musicVolume = Number(musicSlider.value)/100; legacyAudio.setMusicVolume(musicVolume); updateOptionLabels(); });
-    soundSlider.addEventListener('input', () => { soundVolume = Number(soundSlider.value)/100; legacyAudio.setSoundVolume(soundVolume); updateOptionLabels(); });
-    sensitivitySlider.addEventListener('input', () => { mouseSensitivity = Number(sensitivitySlider.value)/100; updateOptionLabels(); });
-    invertButton.addEventListener('click', () => { invertMouse = !invertMouse; updateOptionLabels(); });
-    fovSlider.addEventListener('input', () => { fieldOfView = 70 + Number(fovSlider.value)*0.4; updateOptionLabels(); });
-    difficultyButton.addEventListener('click', () => { difficulty = (difficulty+1)%4; updateOptionLabels(); });
-    renderDistanceButton.addEventListener('click', () => {
-        renderDistance = (renderDistance + 1) % renderDistanceNames.length;
-        chunkRadius = renderDistanceRadii[renderDistance];
-        lastCenterX = NaN;
-        lastCenterZ = NaN;
-        updateChunks();
-        saveVideoOptions();
-        updateOptionLabels();
+    const pauseOptionsContent = document.createElement('div');
+    Object.assign(pauseOptionsContent.style, {
+        position: 'absolute', left: '0', top: '0', transformOrigin: 'top left'
     });
-    smoothLightingButton.addEventListener('click', () => {
-        smoothLighting = !smoothLighting;
-        for (const key of loadedChunks.keys()) pendingChunkMeshes.add(key);
-        saveVideoOptions();
-        updateOptionLabels();
-    });
-    viewBobbingButton.addEventListener('click', () => {
-        viewBobbing = !viewBobbing;
-        saveVideoOptions();
-        updateOptionLabels();
-    });
-    videoOptionsButton.addEventListener('click', () => openSubOptions(videoOptionsScreen));
-    controlsOptionsButton.addEventListener('click', () => openSubOptions(controlsScreen));
-    videoOptionsDone.addEventListener('click', () => closeSubOptions(videoOptionsScreen));
-    controlsDone.addEventListener('click', () => closeSubOptions(controlsScreen));
-    window.addEventListener('resize', () => { if (optionsOpen) placeOptionsControls(); });
+    pauseOptionsHost.append(pauseOptionsContent);
+    document.body.append(pauseOptionsHost);
 
-    window.addEventListener('mousedown', event => {
-        if (!controlsScreen.classList.contains('open') || waitingForControl < 0) return;
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        setControlBinding(waitingForControl, `Mouse${event.button}`);
-    }, true);
+    const pauseOptionsGuiAtlas = new Image();
+    pauseOptionsGuiAtlas.src = window.mcAssetUrl?.('./public/assets/mc10/gui/gui.png')
+        ?? './public/assets/mc10/gui/gui.png';
+    await pauseOptionsGuiAtlas.decode();
+
+    let pauseOptionsActiveScreen = null;
+    let pauseOptionsWidth = innerWidth;
+    let pauseOptionsHeight = innerHeight;
+    const updatePauseOptionsLayout = () => {
+        const scale = Number(getComputedStyle(document.documentElement).getPropertyValue('--hud-scale')) || 1;
+        pauseOptionsWidth = Math.ceil(innerWidth / scale);
+        pauseOptionsHeight = Math.ceil(innerHeight / scale);
+        Object.assign(pauseOptionsContent.style, {
+            width: pauseOptionsWidth + 'px', height: pauseOptionsHeight + 'px',
+            transform: `scale(${scale})`
+        });
+    };
+    const pauseOptionsButton = (parent, value, x, y, width, onClick) => {
+        const node = document.createElement('button');
+        node.type = 'button';
+        Object.assign(node.style, {
+            position: 'absolute', left: x + 'px', top: y + 'px', width: width + 'px', height: '20px',
+            padding: '0', border: '0', borderRadius: '0', background: 'transparent',
+            color: '#e0e0e0', cursor: 'default', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', isolation: 'isolate', imageRendering: 'pixelated'
+        });
+        const sprite = document.createElement('canvas');
+        sprite.width = width; sprite.height = 20;
+        Object.assign(sprite.style, {
+            position: 'absolute', inset: '0', width: width + 'px', height: '20px',
+            pointerEvents: 'none', imageRendering: 'pixelated'
+        });
+        const spriteContext = sprite.getContext('2d');
+        const label = document.createElement('span');
+        Object.assign(label.style, { position: 'relative', zIndex: '1' });
+        node.append(sprite, label);
+        let buttonLabel = value;
+        const draw = () => {
+            const state = node.matches(':hover') ? 2 : 1;
+            const sourceY = 46 + state * 20;
+            const half = Math.floor(width / 2);
+            spriteContext.clearRect(0, 0, width, 20);
+            spriteContext.drawImage(pauseOptionsGuiAtlas, 0, sourceY, half, 20, 0, 0, half, 20);
+            spriteContext.drawImage(pauseOptionsGuiAtlas, 200 - (width - half), sourceY,
+                width - half, 20, half, 0, width - half, 20);
+            label.style.color = node.matches(':hover') ? '#ffffa0' : '#e0e0e0';
+            setMinecraftText(label, buttonLabel, minecraftFont, { scale: 1, shadow: true });
+        };
+        node.addEventListener('mouseenter', draw);
+        node.addEventListener('mouseleave', draw);
+        node.addEventListener('click', () => onClick?.());
+        node.setButtonLabel = next => { buttonLabel = next; draw(); };
+        node.refreshButtonSprite = draw;
+        draw();
+        parent.append(node);
+        return node;
+    };
+
+    updatePauseOptionsLayout();
+    const pauseOptionsUi = createOptionsScreen({
+        content: pauseOptionsContent,
+        getSize: () => ({ width: pauseOptionsWidth, height: pauseOptionsHeight }),
+        font: minecraftFont,
+        button: pauseOptionsButton,
+        text: () => {},
+        guiAtlas: pauseOptionsGuiAtlas,
+        clearContent: () => pauseOptionsContent.replaceChildren(),
+        mainScreen: () => {},
+        setActiveScreen: screen => { pauseOptionsActiveScreen = screen; },
+        background: 'linear-gradient(to bottom, rgba(0,0,0,.75), rgba(0,0,0,.82))',
+        onClose: () => {
+            pauseOptionsHost.style.display = 'none';
+            pauseOptionsContent.replaceChildren();
+            gameMenuOpen = true;
+            gameMenu.classList.add('open');
+            gameMenu.setAttribute('aria-hidden', 'false');
+        },
+        onGuiScaleChange: () => {
+            updateHudScale();
+            updatePauseOptionsLayout();
+        },
+        onChange: (key, value, settings) => {
+            if (key === 'music') { musicVolume = value; legacyAudio.setMusicVolume(value); }
+            else if (key === 'sound') { soundVolume = value; legacyAudio.setSoundVolume(value); }
+            else if (key === 'mouseSensitivity') mouseSensitivity = value;
+            else if (key === 'invertYMouse') invertMouse = value;
+            else if (key === 'fov') fieldOfView = 70 + value * 40;
+            else if (key === 'difficulty') difficulty = value;
+            else if (key === 'gamma') { currentGamma = value; updateMinecraft10Lightmap(); }
+            else if (key === 'viewDistance') {
+                renderDistance = value;
+                chunkRadius = renderDistanceRadii[value];
+                lastCenterX = NaN; lastCenterZ = NaN;
+                updateChunks();
+            } else if (key === 'ao' || key === 'fancyGraphics') {
+                if (key === 'ao') smoothLighting = value;
+                else fancyGraphics = value;
+                for (const chunkKey of loadedChunks.keys()) pendingChunkMeshes.add(chunkKey);
+            } else if (key === 'bobView') viewBobbing = value;
+            else if (key === 'clouds') cloudsEnabled = value;
+            else if (key === 'particles') {
+                particleSetting = value;
+                particleEngine.setParticleSetting(value);
+            } else if (key === 'guiScale') {
+                guiScaleSetting = value;
+                updateHudScale();
+                updatePauseOptionsLayout();
+            } else if (key === 'keys') {
+                for (const binding of controlBindings) {
+                    if (settings.domKeys[binding.id]) binding.code = settings.domKeys[binding.id];
+                }
+            }
+        }
+    });
+
+    optionsButton.addEventListener('click', () => {
+        gameMenuOpen = true;
+        gameMenu.classList.remove('open');
+        gameMenu.setAttribute('aria-hidden', 'true');
+        pauseOptionsHost.style.display = 'block';
+        updatePauseOptionsLayout();
+        pauseOptionsUi.open();
+    });
 
     window.addEventListener('keydown', event => {
         if (chatOpen) {
@@ -2338,18 +2295,12 @@ async function main() {
             }
             return;
         }
-        if (controlsScreen.classList.contains('open') && waitingForControl >= 0) {
-            event.preventDefault(); event.stopImmediatePropagation();
-            if (event.code === 'Escape') { waitingForControl = -1; updateOptionLabels(); }
-            else setControlBinding(waitingForControl, event.code);
-            return;
-        }
-        if (!event.repeat && !dead && !gameMenuOpen && !optionsOpen && !inventoryOpen && event.code === getControlCode('inventory')) {
+        if (!event.repeat && !dead && !gameMenuOpen && !inventoryOpen && event.code === getControlCode('inventory')) {
             event.preventDefault();
             openInventory();
             return;
         }
-        if (!event.repeat && !dead && !gameMenuOpen && !optionsOpen && !inventoryOpen && event.code === getControlCode('drop')) {
+        if (!event.repeat && !dead && !gameMenuOpen && !inventoryOpen && event.code === getControlCode('drop')) {
             event.preventDefault();
             const dropped = inventory.removeStackFromSlot(inventory.currentItem, 1);
             if (dropped) {
@@ -2364,9 +2315,6 @@ async function main() {
             }
             return;
         }
-        if (event.code === 'Escape' && videoOptionsScreen.classList.contains('open')) { event.preventDefault(); closeSubOptions(videoOptionsScreen); return; }
-        if (event.code === 'Escape' && controlsScreen.classList.contains('open')) { event.preventDefault(); closeSubOptions(controlsScreen); return; }
-        if (event.code === 'Escape' && optionsOpen) { event.preventDefault(); closeOptions(); return; }
         if (event.code === 'Escape' && inventoryOpen) {
             event.preventDefault();
             closeInventory();
@@ -2615,6 +2563,10 @@ function setMeterSprites(element, baseU, fillU, v) {
 
     window.addEventListener('resize', () => {
         updateHudScale();
+        if (pauseOptionsHost.style.display !== 'none') {
+            updatePauseOptionsLayout();
+            pauseOptionsActiveScreen?.();
+        }
         updateSurvivalHud();
         if (inventoryOpen) {
             inventoryPreview?.render();
@@ -3262,11 +3214,6 @@ function setMeterSprites(element, baseU, fillU, v) {
     });
 
     canvas.addEventListener('mousedown', event => {
-        if (controlsScreen.classList.contains('open') && waitingForControl >= 0) {
-            event.preventDefault();
-            setControlBinding(waitingForControl, `Mouse${event.button}`);
-            return;
-        }
         if (document.pointerLockElement !== canvas && !mobileActionDispatch) return;
         if (event.button !== 0 && event.button !== 2) return;
 

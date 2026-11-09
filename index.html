@@ -462,64 +462,6 @@
     #options-button { top: calc(25% + 80px * var(--hud-scale, 1)); }
     #save-quit-title { top: calc(25% + 104px * var(--hud-scale, 1)); }
 
-    #options-screen, #video-options-screen, #controls-screen {
-      position: fixed; inset: 0; z-index: 29; display: none;
-      color: #fff; pointer-events: auto; image-rendering: pixelated;
-      background: rgba(0,0,0,.75); font-family: monospace;
-    }
-    #options-screen.open, #video-options-screen.open, #controls-screen.open { display:block; }
-    .mc-options-title {
-      position:absolute; top:calc(20px * var(--hud-scale,1)); left:50%;
-      transform:translateX(-50%) scale(var(--hud-scale,1)); transform-origin:top center;
-      color:#fff; white-space:nowrap; font-size:0; line-height:0;
-    }
-    .mc-option-control {
-      position:absolute; width:150px; height:20px; padding:0; border:0; border-radius:0;
-      transform:scale(var(--hud-scale,1)); transform-origin:top left;
-      background:transparent; color:#e0e0e0; font:0 monospace; cursor:default;
-      image-rendering:pixelated; isolation:isolate;
-    }
-    .mc-option-control::before,.mc-option-control::after {
-      content:""; position:absolute; z-index:-1; top:0; width:50%; height:20px;
-      background-image:url('./public/assets/mc10/gui/gui.png'); background-repeat:no-repeat;
-      pointer-events:none;
-    }
-    .mc-option-control::before {left:0;background-position:0 -66px}
-    .mc-option-control::after {right:0;background-position:-125px -66px}
-    .mc-option-control:hover {color:#ffffa0}
-    .mc-option-control:hover::before,.mc-option-control:hover::after {background-position-y:-86px}
-    .mc-option-control .mc-text { position:relative; z-index:2; justify-content:center; width:100%; height:20px; align-items:center; }
-    .mc-option-control:disabled {color:#707070}
-    .mc-option-control:disabled::before,.mc-option-control:disabled::after {background-position-y:-46px}
-    .mc-option-slider { position:absolute; width:150px; height:20px; margin:0; padding:0; appearance:none; -webkit-appearance:none; z-index:1;
-      background:transparent; border:0; border-radius:0; image-rendering:pixelated;
-      transform:scale(var(--hud-scale,1)); transform-origin:top left; cursor:pointer; }
-    .mc-option-slider::-webkit-slider-runnable-track {height:20px; border:0; background:url('./public/assets/mc10/gui/slider-track.png') 0 0 / 150px 20px no-repeat;}
-    .mc-option-slider::-moz-range-track {height:20px; border:0; background:url('./public/assets/mc10/gui/slider-track.png') 0 0 / 150px 20px no-repeat;}
-    .mc-option-slider::-webkit-slider-thumb {appearance:none; -webkit-appearance:none; width:8px; height:20px; margin-top:0; border:0; border-radius:0;
-      background:url('./public/assets/mc10/gui/slider-thumb.png') 0 0 / 8px 20px no-repeat; image-rendering:pixelated;}
-    .mc-option-slider::-moz-range-thumb {width:8px;height:20px;border:0;border-radius:0;
-      background:url('./public/assets/mc10/gui/slider-thumb.png') 0 0 / 8px 20px no-repeat; image-rendering:pixelated;}
-    .mc-option-done { position:absolute; left:50%; width:200px; height:20px; margin:0;
-      transform:translateX(-50%) scale(var(--hud-scale,1)); transform-origin:top center; }
-    .mc-option-done::after { background-position-x:-100px; }
-    #options-done { top:calc((100vh / 6 + 168px) * 1); }
-    #options-video { top:calc((100vh / 6 + 96px) * 1); }
-    #options-controls { top:calc((100vh / 6 + 120px) * 1); }
-    #video-options-done,#controls-done {top:calc(100vh / 6 + 168px * var(--hud-scale,1))}
-    #controls-list { position:absolute; left:calc(50% - 155px * var(--hud-scale,1)); top:calc(100vh / 6); width:320px; display:grid; grid-template-columns:156px 156px; grid-auto-rows:20px; gap:4px 4px; transform:scale(var(--hud-scale,1)); transform-origin:top left; }
-    .mc-control-entry { position:relative; width:156px; height:20px; display:flex; align-items:center; gap:6px; }
-    #controls-list .mc-option-control { position:relative; flex:0 0 70px; width:70px; height:20px; left:auto!important; top:auto!important; transform:none!important; }
-    .mc-control-name { width:80px; height:20px; display:flex; align-items:center; color:#fff; white-space:nowrap; font-size:0; line-height:0; }
-    .mc-options-label {position:absolute;width:150px;height:20px;display:flex;align-items:center;
-      justify-content:center;color:#e0e0e0;font-size:0;line-height:0;pointer-events:none;z-index:2;
-      transform:scale(var(--hud-scale,1));transform-origin:top left;white-space:nowrap}
-    .mc-options-label.disabled {color:#707070}
-    #options-screen:has(#option-music:hover) #option-music-label,
-    #options-screen:has(#option-sound:hover) #option-sound-label,
-    #options-screen:has(#option-sensitivity:hover) #option-sensitivity-label,
-    #options-screen:has(#option-fov:hover) #option-fov-label {color:#ffffa0}
-
     #death-screen {
       position: fixed;
       inset: 0;
@@ -666,37 +608,6 @@
     <button class="game-menu-button" id="stats-button" type="button">Statistics</button>
     <button class="game-menu-button" id="options-button" type="button">Options...</button>
     <button class="game-menu-button" id="save-quit-title" type="button">Save and quit to title</button>
-  </div>
-
-  <div id="options-screen" aria-hidden="true">
-    <div id="options-title" class="mc-options-title">Options</div>
-    <div id="option-music-label" class="mc-options-label"></div>
-    <input id="option-music" class="mc-option-slider" type="range" min="0" max="100" value="100" aria-label="Music">
-    <div id="option-sound-label" class="mc-options-label"></div>
-    <input id="option-sound" class="mc-option-slider" type="range" min="0" max="100" value="100" aria-label="Sound">
-    <button id="option-invert" class="mc-option-control" type="button"></button>
-    <div id="option-sensitivity-label" class="mc-options-label"></div>
-    <input id="option-sensitivity" class="mc-option-slider" type="range" min="0" max="100" value="50" aria-label="Sensitivity">
-    <div id="option-fov-label" class="mc-options-label"></div>
-    <input id="option-fov" class="mc-option-slider" type="range" min="0" max="100" value="0" aria-label="FOV">
-    <button id="option-difficulty" class="mc-option-control" type="button"></button>
-    <button id="options-video" class="mc-option-control mc-option-done" type="button">Video Settings...</button>
-    <button id="options-controls" class="mc-option-control mc-option-done" type="button">Controls...</button>
-    <button id="options-done" class="mc-option-control mc-option-done" type="button">Done</button>
-  </div>
-  <div id="video-options-screen" aria-hidden="true">
-    <div id="video-options-title" class="mc-options-title">Video Settings</div>
-    <div id="video-options-controls">
-      <button id="option-render-distance" class="mc-option-control" type="button"></button>
-      <button id="option-smooth-lighting" class="mc-option-control" type="button"></button>
-      <button id="option-view-bobbing" class="mc-option-control" type="button"></button>
-    </div>
-    <button id="video-options-done" class="mc-option-control mc-option-done" type="button">Done</button>
-  </div>
-  <div id="controls-screen" aria-hidden="true">
-    <div id="controls-title" class="mc-options-title">Controls</div>
-    <div id="controls-list"></div>
-    <button id="controls-done" class="mc-option-control mc-option-done" type="button">Done</button>
   </div>
 
   <div id="chat-screen" aria-hidden="true">

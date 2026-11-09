@@ -135,7 +135,9 @@ const formatValue = (key, value) => {
 };
 
 export function createOptionsScreen({
-  content, getSize, font, button, text, guiAtlas, clearContent, mainScreen, setActiveScreen, onGuiScaleChange
+  content, getSize, font, button, text, guiAtlas, clearContent, mainScreen,
+  setActiveScreen, onGuiScaleChange, onChange, onClose = mainScreen,
+  background = 'texture'
 }) {
   const settings = readOptions();
   let active = 'main';
@@ -148,9 +150,12 @@ export function createOptionsScreen({
   const resolvedAsset = path => window.mcAssetUrl?.(asset(path)) ?? asset(path);
   Object.assign(screen.style, {
     position:'absolute', inset:'0', zIndex:'4', display:'none',
-    backgroundColor:'#202020',
-    backgroundImage:`url("${resolvedAsset('gui/background.png')}")`,
-    backgroundRepeat:'repeat', backgroundSize:'32px 32px'
+    backgroundColor: background === 'texture' ? '#202020' : 'transparent',
+    backgroundImage: background === 'texture'
+      ? `url("${resolvedAsset('gui/background.png')}")`
+      : background === 'transparent' ? 'none' : background,
+    backgroundRepeat: background === 'texture' ? 'repeat' : 'no-repeat',
+    backgroundSize: background === 'texture' ? '32px 32px' : '100% 100%'
   });
   content.append(screen);
 
@@ -180,12 +185,16 @@ export function createOptionsScreen({
     window.removeEventListener('mousedown', captureHandler, true);
     captureHandler = null;
   };
-  const closeToMainMenu = () => {
+  const closeToParent = () => {
     clearCapture();
     waitingKey = null;
     screen.style.display = 'none';
-    setActiveScreen?.(mainScreen);
-    mainScreen();
+    setActiveScreen?.(onClose);
+    onClose?.();
+  };
+  const commit = key => {
+    saveOptions(settings);
+    onChange?.(key, settings[key], settings);
   };
   const drawSlider = (key, x, y) => {
     const valueLabel = label(optionLabels[key] + ': ' + formatValue(key, settings[key]), x, y);
@@ -226,7 +235,7 @@ export function createOptionsScreen({
       settings[key] = Number(input.value) / 100;
       thumb.style.left = (x + Math.floor(settings[key] * 142)) + 'px';
       setMinecraftText(valueLabel, optionLabels[key] + ': ' + formatValue(key, settings[key]), font, { shadow:true });
-      saveOptions(settings);
+      commit(key);
     });
     screen.append(track, thumb, input);
   };
@@ -234,14 +243,14 @@ export function createOptionsScreen({
     const node = button(screen, optionLabels[key] + ': ' + formatValue(key, settings[key]), x, y, width, () => {
       if (typeof settings[key] === 'boolean') settings[key] = !settings[key];
       else if (cycles[key]) settings[key] = (settings[key] + 1) % cycles[key].length;
-      saveOptions(settings);
+      commit(key);
       if (key === 'guiScale') onGuiScaleChange?.();
       show(active);
     });
     return node;
   };
   const addDone = () => button(screen, 'Done', getSize().width / 2 - 100, getSize().height / 6 + 168, 200, () => {
-    if (active === 'main') closeToMainMenu();
+    if (active === 'main') closeToParent();
     else show('main');
   });
   const showControls = (left, top) => {
@@ -268,7 +277,7 @@ export function createOptionsScreen({
             settings.keys[key] = lwjglCodes[event.code] ?? event.keyCode;
             settings.domKeys[key] = event.code;
             waitingKey = null;
-            saveOptions(settings);
+            commit('keys');
             show('controls');
           } else if (event.type === 'mousedown') {
             event.preventDefault();
@@ -276,7 +285,7 @@ export function createOptionsScreen({
             settings.keys[key] = [-100, -98, -99][event.button] ?? -100;
             settings.domKeys[key] = 'Mouse' + event.button;
             waitingKey = null;
-            saveOptions(settings);
+            commit('keys');
             show('controls');
           }
         };
@@ -315,9 +324,12 @@ export function createOptionsScreen({
         'fancyGraphics','viewDistance','ao','fpsLimit','anaglyph3d',
         'bobView','guiScale','advancedOpengl','gamma','clouds','particles'
       ];
-      order.forEach((key, index) => addControl(
-        key, left + (index % 2) * 160, top + Math.floor(index / 2) * 24
-      ));
+      order.forEach((key, index) => {
+        const x = left + (index % 2) * 160;
+        const y = top + Math.floor(index / 2) * 24;
+        if (key === 'gamma') drawSlider(key, x, y);
+        else addControl(key, x, y);
+      });
       addDone();
     } else {
       showControls(left, top);
@@ -330,7 +342,7 @@ export function createOptionsScreen({
     if (waitingKey) return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    if (active === 'main') closeToMainMenu();
+    if (active === 'main') closeToParent();
     else show('main');
   };
   window.addEventListener('keydown', onEscape, true);

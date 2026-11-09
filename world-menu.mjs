@@ -270,7 +270,9 @@ export async function openWorldMenu() {
     content, getSize: () => ({ width: guiWidth, height: guiHeight }), font, button, text, guiAtlas,
     clearContent, mainScreen, playButtonSound,
     setActiveScreen: screen => { activeScreen = screen; },
-    onGuiScaleChange: updateGuiSize
+    onGuiScaleChange: updateGuiSize,
+    background: 'transparent',
+    onClose: mainScreen
   });
 
   mainScreen();
